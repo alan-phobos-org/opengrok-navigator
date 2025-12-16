@@ -36,6 +36,7 @@ Before using the extension, configure your OpenGrok base URL:
    - **Base URL**: Your OpenGrok instance URL (e.g., `http://opengrok.example.com/source`)
    - **Project Root** (optional): If your project in OpenGrok has a different root path
    - **Use Integrated Browser** (optional): Enable to open OpenGrok links in VS Code's built-in Simple Browser instead of your system browser (default: disabled)
+   - **Use Top Level Folder** (optional): Use the top-level folder name within the workspace as the OpenGrok project name instead of the workspace name. Useful for workspaces containing multiple projects (default: disabled)
 
 Example settings in `settings.json`:
 
@@ -43,8 +44,34 @@ Example settings in `settings.json`:
 {
   "opengrok-navigator.baseUrl": "http://localhost:8080/source",
   "opengrok-navigator.projectRoot": "",
-  "opengrok-navigator.useIntegratedBrowser": false
+  "opengrok-navigator.useIntegratedBrowser": false,
+  "opengrok-navigator.useTopLevelFolder": false
 }
+```
+
+### Multi-Project Workspaces
+
+If your workspace contains multiple projects (each in its own top-level folder) and each maps to a different OpenGrok project, enable the **Use Top Level Folder** option:
+
+**Example structure:**
+```
+/workspace-root/
+├── project-a/
+│   └── src/
+│       └── main.ts
+└── project-b/
+    └── src/
+        └── main.ts
+```
+
+With `useTopLevelFolder: true`, files in `project-a/src/main.ts` will generate URLs like:
+```
+http://localhost:8080/source/xref/project-a/src/main.ts#10
+```
+
+Instead of the default (workspace name):
+```
+http://localhost:8080/source/xref/workspace-root/project-a/src/main.ts#10
 ```
 
 ## Usage

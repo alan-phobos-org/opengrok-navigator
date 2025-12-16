@@ -17,7 +17,7 @@ function buildOpenGrokUrl(): string | null {
     const config = vscode.workspace.getConfiguration('opengrok-navigator');
     const baseUrl = config.get<string>('baseUrl');
     const projectRoot = config.get<string>('projectRoot');
-    const workspaceName = vscode.workspace.workspaceFolders?.[0]?.name;
+    const useTopLevelFolder = config.get<boolean>('useTopLevelFolder', false);
 
     if (!baseUrl) {
         vscode.window.showErrorMessage('OpenGrok base URL is not configured. Please set it in settings.');
@@ -37,6 +37,25 @@ function buildOpenGrokUrl(): string | null {
     // Calculate relative path
     let relativePath = path.relative(workspaceRoot, filePath);
 
+    // Determine the project name for OpenGrok URL
+    let projectName: string;
+
+    if (useTopLevelFolder) {
+        // Use the top-level folder name (first component of relative path)
+        const pathComponents = relativePath.split(path.sep);
+        if (pathComponents.length > 0) {
+            projectName = pathComponents[0];
+            // Remove the top-level folder from the relative path
+            relativePath = pathComponents.slice(1).join('/');
+        } else {
+            vscode.window.showErrorMessage('Unable to determine top-level folder');
+            return null;
+        }
+    } else {
+        // Use the workspace name
+        projectName = vscode.workspace.workspaceFolders?.[0]?.name || 'unknown';
+    }
+
     // If projectRoot is specified, prepend it
     if (projectRoot) {
         relativePath = path.join(projectRoot, relativePath);
@@ -46,8 +65,8 @@ function buildOpenGrokUrl(): string | null {
     relativePath = relativePath.replace(/\\/g, '/');
 
     // Construct OpenGrok URL
-    // OpenGrok URL format: {baseUrl}/xref/{path}#{line}
-    return `${baseUrl}/xref/${workspaceName}/${relativePath}#${lineNumber}`;
+    // OpenGrok URL format: {baseUrl}/xref/{projectName}/{path}#{line}
+    return `${baseUrl}/xref/${projectName}/${relativePath}#${lineNumber}`;
 }
 
 export function activate(context: vscode.ExtensionContext) {

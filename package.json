@@ -70,6 +70,11 @@
           "type": "boolean",
           "default": false,
           "description": "Open OpenGrok links in VS Code's built-in Simple Browser instead of external browser"
+        },
+        "opengrok-navigator.useTopLevelFolder": {
+          "type": "boolean",
+          "default": false,
+          "description": "Use the top-level folder name (within workspace) as the OpenGrok project name instead of the workspace name. Useful for workspaces containing multiple projects."
         }
       }
     }
