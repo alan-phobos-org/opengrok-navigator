@@ -9,6 +9,7 @@ class SearchResultLine {
         public readonly lineNumber: number,
         public readonly url: string,
         public readonly context: string,
+        public readonly searchTerm: string,
         public readonly filePath?: string
     ) {}
 }
@@ -36,9 +37,33 @@ class SearchResultLineItem extends vscode.TreeItem {
         public readonly line: SearchResultLine,
         public readonly filename: string
     ) {
-        super(`Line ${line.lineNumber}: ${line.context}`, vscode.TreeItemCollapsibleState.None);
+        super(line.context, vscode.TreeItemCollapsibleState.None);
         this.contextValue = 'searchResultLine';
-        this.tooltip = line.context;
+        this.tooltip = `Line ${line.lineNumber}: ${line.context}`;
+        this.description = `${line.lineNumber}`;
+
+        // Add highlighting for the search term
+        const searchTerm = line.searchTerm.toLowerCase();
+        const context = line.context;
+        const contextLower = context.toLowerCase();
+        const highlights: [number, number][] = [];
+
+        // Find all occurrences of the search term in the context
+        let startIndex = 0;
+        while (startIndex < contextLower.length) {
+            const index = contextLower.indexOf(searchTerm, startIndex);
+            if (index === -1) break;
+            highlights.push([index, index + searchTerm.length]);
+            startIndex = index + searchTerm.length;
+        }
+
+        // Set label with highlights
+        if (highlights.length > 0) {
+            this.label = {
+                label: context,
+                highlights: highlights
+            };
+        }
 
         // If we have a local file path, open in editor; otherwise open in browser
         if (line.filePath) {
@@ -138,7 +163,7 @@ async function searchOpenGrokAPI(baseUrl: string, searchText: string, projectNam
 }
 
 // Parse OpenGrok HTML search results
-function parseOpenGrokResults(html: string, baseUrl: string, projectName: string, useTopLevelFolder: boolean): SearchResultFile[] {
+function parseOpenGrokResults(html: string, baseUrl: string, projectName: string, useTopLevelFolder: boolean, searchTerm: string, outputChannel?: vscode.OutputChannel): SearchResultFile[] {
     const workspaceFolders = vscode.workspace.workspaceFolders;
     const seen = new Set<string>(); // Track unique file+line combinations
     const fileMap = new Map<string, { directory: string, lines: SearchResultLine[], fullPath: string }>();
@@ -148,6 +173,7 @@ function parseOpenGrokResults(html: string, baseUrl: string, projectName: string
     const resultRegex = /<a[^>]+href="([^"]*\/xref\/[^"#]+#\d+)"[^>]*>/g;
     const matches = html.matchAll(resultRegex);
 
+    let matchCount = 0;
     for (const match of matches) {
         const href = match[1];
         const matchIndex = match.index || 0;
@@ -161,35 +187,30 @@ function parseOpenGrokResults(html: string, baseUrl: string, projectName: string
         const lookAheadEnd = Math.min(html.length, matchIndex + 800);
         const lookAheadHtml = html.substring(lookAheadStart, lookAheadEnd);
 
-        // Try multiple patterns to find the code content
-        // Pattern 1: Content in <tt> tags (most common)
-        let ttMatch = lookAheadHtml.match(/<tt[^>]*>(.*?)<\/tt>/s);
-        if (ttMatch && ttMatch[1]) {
-            context = ttMatch[1];
+        // DEBUG: Log first few samples to understand HTML structure
+        if (matchCount < 3 && outputChannel) {
+            outputChannel.appendLine(`\n=== Match ${matchCount + 1} HTML Sample ===`);
+            outputChannel.appendLine('First 500 chars:');
+            outputChannel.appendLine(lookAheadHtml.substring(0, 500));
+            outputChannel.appendLine('========================\n');
         }
+        matchCount++;
 
-        // Pattern 2: Content in <code> tags
-        if (!context) {
-            const codeMatch = lookAheadHtml.match(/<code[^>]*>(.*?)<\/code>/s);
-            if (codeMatch && codeMatch[1]) {
-                context = codeMatch[1];
+        // OpenGrok puts the code content inside the <a> tag itself
+        // Pattern: <a ...><span class="l">123</span> CODE CONTENT HERE</a>
+        // We want to extract everything after the </span> tag and before the </a> tag
+        const insideLinkMatch = lookAheadHtml.match(/<a[^>]*>.*?<\/span>\s*(.+?)<\/a>/s);
+        if (insideLinkMatch && insideLinkMatch[1]) {
+            context = insideLinkMatch[1];
+            if (matchCount <= 3 && outputChannel) {
+                outputChannel.appendLine('Extracted context from inside <a> tag: ' + context.substring(0, 100));
             }
         }
 
-        // Pattern 3: Look for text after the closing </a> tag
-        if (!context) {
-            const afterLinkMatch = lookAheadHtml.match(/<\/a>\s*(.{10,200}?)(?:<br|<\/)/s);
-            if (afterLinkMatch && afterLinkMatch[1]) {
-                context = afterLinkMatch[1];
-            }
-        }
-
-        // Pattern 4: Try to find any line-like content with class="l" or similar
-        if (!context) {
-            const lineMatch = lookAheadHtml.match(/class="[^"]*l[^"]*"[^>]*>([^<]{10,200})/);
-            if (lineMatch && lineMatch[1]) {
-                context = lineMatch[1];
-            }
+        // DEBUG: Log if no pattern matched
+        if (!context && matchCount <= 3 && outputChannel) {
+            outputChannel.appendLine('No pattern matched for this result');
+            outputChannel.appendLine('Looking for: <a...><span class="l">NUM</span> CONTENT</a>');
         }
 
         // Clean up HTML entities and tags from context
@@ -276,7 +297,7 @@ function parseOpenGrokResults(html: string, baseUrl: string, projectName: string
             fileMap.set(fileKey, { directory, lines: [], fullPath: localFilePath || '' });
         }
 
-        fileMap.get(fileKey)!.lines.push(new SearchResultLine(lineNumber, fullUrl, context, localFilePath));
+        fileMap.get(fileKey)!.lines.push(new SearchResultLine(lineNumber, fullUrl, context, searchTerm, localFilePath));
     }
 
     // Convert map to array of SearchResultFile objects
@@ -372,6 +393,10 @@ function buildOpenGrokUrl(): string | null {
 
 export function activate(context: vscode.ExtensionContext) {
     console.log('OpenGrok Navigator extension is now active');
+
+    // Create output channel for debug logging
+    const outputChannel = vscode.window.createOutputChannel('OpenGrok Navigator');
+    context.subscriptions.push(outputChannel);
 
     // Create search results provider and register TreeView
     const searchResultsProvider = new SearchResultsProvider();
@@ -576,8 +601,15 @@ export function activate(context: vscode.ExtensionContext) {
             cancellable: false
         }, async () => {
             try {
+                // Clear and show the output channel for debug info
+                outputChannel.clear();
+                outputChannel.show(true); // Show but don't take focus
+                outputChannel.appendLine(`Searching for: "${searchText}"`);
+                outputChannel.appendLine(`Project: ${projectName}`);
+                outputChannel.appendLine('');
+
                 const result = await searchOpenGrokAPI(baseUrl, searchText, projectName);
-                const parsedResults = parseOpenGrokResults(result.html, baseUrl, projectName, useTopLevelFolder);
+                const parsedResults = parseOpenGrokResults(result.html, baseUrl, projectName, useTopLevelFolder, searchText, outputChannel);
                 searchResultsProvider.setResults(parsedResults);
 
                 // Reveal the TreeView
