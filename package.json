@@ -27,6 +27,15 @@
       {
         "command": "opengrok-navigator.searchInOpenGrok",
         "title": "Search in OpenGrok"
+      },
+      {
+        "command": "opengrok-navigator.searchInView",
+        "title": "Search in OpenGrok (View Results)"
+      },
+      {
+        "command": "opengrok-navigator.clearSearchResults",
+        "title": "Clear OpenGrok Search Results",
+        "icon": "$(close)"
       }
     ],
     "keybindings": [
@@ -47,6 +56,12 @@
         "key": "ctrl+shift+f",
         "mac": "cmd+shift+f",
         "when": "editorTextFocus"
+      },
+      {
+        "command": "opengrok-navigator.searchInView",
+        "key": "ctrl+alt+f",
+        "mac": "cmd+alt+f",
+        "when": "editorTextFocus"
       }
     ],
     "menus": {
@@ -65,9 +80,35 @@
           "command": "opengrok-navigator.searchInOpenGrok",
           "when": "editorTextFocus",
           "group": "navigation"
+        },
+        {
+          "command": "opengrok-navigator.searchInView",
+          "when": "editorTextFocus",
+          "group": "navigation"
+        }
+      ],
+      "view/title": [
+        {
+          "command": "opengrok-navigator.clearSearchResults",
+          "when": "view == opengrokSearchResults",
+          "group": "navigation"
         }
       ]
     },
+    "views": {
+      "explorer": [
+        {
+          "id": "opengrokSearchResults",
+          "name": "OpenGrok Search"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "opengrokSearchResults",
+        "contents": "No search results yet.\n[Search in OpenGrok](command:opengrok-navigator.searchInView)"
+      }
+    ],
     "configuration": {
       "title": "OpenGrok Navigator",
       "properties": {
