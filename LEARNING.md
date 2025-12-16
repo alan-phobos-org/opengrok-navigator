@@ -11,6 +11,7 @@
 * I used all my short term credit in 90 mins
 * Where it really got expensive was when I found something it couldn't do in either one or two attempts
 * It did some cute stuff where it spotted I wasn't rebuilding the extension after it made some changes when I complained they didn't work and from then on it always ended every change by recompiling the plugin for me
+* The usage limits reset every 6-8 hours which encouraged lots of short sessions
 
 ## Big Feature
 

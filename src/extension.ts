@@ -123,21 +123,52 @@ class SearchResultsProvider implements vscode.TreeDataProvider<SearchResultFile 
     }
 }
 
+// OpenGrok API response types
+interface OpenGrokSearchResult {
+    path: string;
+    lineno: string;
+    line: string;
+}
+
+interface OpenGrokAPIResponse {
+    results?: OpenGrokSearchResult[];
+    resultCount?: number;
+}
+
 // Function to perform OpenGrok API search
-async function searchOpenGrokAPI(baseUrl: string, searchText: string, projectName: string): Promise<any> {
+async function searchOpenGrokAPI(baseUrl: string, searchText: string, projectName: string, outputChannel?: vscode.OutputChannel): Promise<any> {
     return new Promise((resolve, reject) => {
         const quotedSearchText = `"${searchText}"`;
         const encodedSearchText = encodeURIComponent(quotedSearchText);
 
-        let searchUrl = `${baseUrl}/search?full=${encodedSearchText}`;
+        // Try REST API first (v1)
+        let searchUrl = `${baseUrl}/api/v1/search?full=${encodedSearchText}`;
         if (projectName) {
-            searchUrl += `&project=${encodeURIComponent(projectName)}`;
+            searchUrl += `&projects=${encodeURIComponent(projectName)}`;
         }
 
         const urlObj = new URL(searchUrl);
         const protocol = urlObj.protocol === 'https:' ? https : http;
 
         const req = protocol.get(searchUrl, (res) => {
+            const statusCode = res.statusCode || 0;
+
+            // If we get 404, the REST API doesn't exist - fall back to HTML
+            if (statusCode === 404) {
+                // Fall back to HTML search
+                const htmlSearchUrl = `${baseUrl}/search?full=${encodedSearchText}${projectName ? '&project=' + encodeURIComponent(projectName) : ''}`;
+                const htmlReq = protocol.get(htmlSearchUrl, (htmlRes) => {
+                    let htmlData = '';
+                    htmlRes.on('data', (chunk) => { htmlData += chunk; });
+                    htmlRes.on('end', () => {
+                        resolve({ html: htmlData, url: htmlSearchUrl, type: 'html' });
+                    });
+                });
+                htmlReq.on('error', (error) => reject(error));
+                htmlReq.end();
+                return;
+            }
+
             let data = '';
 
             res.on('data', (chunk) => {
@@ -146,10 +177,18 @@ async function searchOpenGrokAPI(baseUrl: string, searchText: string, projectNam
 
             res.on('end', () => {
                 try {
-                    // OpenGrok returns HTML, we'll parse it to extract results
-                    resolve({ html: data, url: searchUrl });
+                    // Check if response is JSON (REST API)
+                    const contentType = res.headers['content-type'] || '';
+                    if (contentType.includes('application/json')) {
+                        const jsonData = JSON.parse(data);
+                        resolve({ json: jsonData, url: searchUrl, type: 'json' });
+                    } else {
+                        // Fallback to HTML parsing if REST API not available
+                        resolve({ html: data, url: searchUrl, type: 'html' });
+                    }
                 } catch (error) {
-                    reject(error);
+                    // If JSON parsing fails, treat as HTML
+                    resolve({ html: data, url: searchUrl, type: 'html' });
                 }
             });
         });
@@ -160,6 +199,140 @@ async function searchOpenGrokAPI(baseUrl: string, searchText: string, projectNam
 
         req.end();
     });
+}
+
+// Parse OpenGrok JSON API search results
+function parseOpenGrokJSON(data: any, baseUrl: string, projectName: string, useTopLevelFolder: boolean, searchTerm: string): SearchResultFile[] {
+    const workspaceFolders = vscode.workspace.workspaceFolders;
+    const seen = new Set<string>(); // Track unique file+line combinations
+    const fileMap = new Map<string, { directory: string, lines: SearchResultLine[], fullPath: string }>();
+
+    // OpenGrok REST API returns results as an object keyed by file path
+    // Structure: { "results": { "/path/to/file": [ { "line": "...", "lineNumber": "123" } ] } }
+    let resultsObject: any = null;
+
+    if (data.results && typeof data.results === 'object' && !Array.isArray(data.results)) {
+        resultsObject = data.results;
+    } else if (data.hits && typeof data.hits === 'object' && !Array.isArray(data.hits)) {
+        resultsObject = data.hits;
+    } else {
+        return [];
+    }
+
+    // Iterate through each file and its results
+    for (const fullFilePath in resultsObject) {
+        const fileResults = resultsObject[fullFilePath];
+
+        if (!Array.isArray(fileResults)) {
+            continue;
+        }
+
+        for (const result of fileResults) {
+            // Extract file path - remove leading project path if present
+            // Full path might be: "/project-name/path/to/file.c"
+            let filePath = fullFilePath;
+            if (filePath.startsWith('/')) {
+                filePath = filePath.substring(1); // Remove leading slash
+            }
+            // If path starts with project name, remove it
+            if (projectName && filePath.startsWith(projectName + '/')) {
+                filePath = filePath.substring(projectName.length + 1);
+            }
+
+            // Get line number and context from the result object
+            const lineNumberStr = result.lineNumber || result.lineno || result.line_number || result.lnum;
+            const lineNumber = parseInt(lineNumberStr, 10);
+
+            // Clean up HTML in the line content
+            let context = result.line || result.text || result.content || '(click to view)';
+            context = context
+                .replace(/<[^>]+>/g, '') // Remove HTML tags
+                .replace(/&lt;/g, '<')
+                .replace(/&gt;/g, '>')
+                .replace(/&amp;/g, '&')
+                .replace(/&quot;/g, '"')
+                .replace(/&#39;/g, "'")
+                .replace(/&nbsp;/g, ' ')
+                .replace(/\s+/g, ' ') // Normalize whitespace
+                .trim();
+
+            // Limit context length
+            if (context.length > 150) {
+                context = context.substring(0, 147) + '...';
+            }
+
+            // Skip if line number is invalid
+            if (isNaN(lineNumber) || lineNumber <= 0) {
+                continue;
+            }
+
+            // Create unique key for this result
+            const uniqueKey = `${filePath}:${lineNumber}`;
+            if (seen.has(uniqueKey)) {
+                continue; // Skip duplicates
+            }
+            seen.add(uniqueKey);
+
+            // Construct OpenGrok URL for this result
+            const openGrokPath = `/xref/${projectName}/${filePath}#${lineNumber}`;
+            const fullUrl = `${baseUrl}${openGrokPath}`;
+
+            // Extract filename from path
+            const pathParts = filePath.split('/');
+            const filename = pathParts[pathParts.length - 1];
+
+            // Skip if filename is empty or looks like a directory
+            if (!filename || filename.length === 0) {
+                continue;
+            }
+
+            // Get parent directory for context
+            const parentDir = pathParts.length > 2 ? pathParts[pathParts.length - 2] : '';
+            const directory = parentDir ? `${parentDir}` : '';
+
+            // Try to convert OpenGrok path to local file path
+            let localFilePath: string | undefined;
+            if (workspaceFolders && workspaceFolders.length > 0) {
+                if (useTopLevelFolder) {
+                    // Path includes project name as top-level folder
+                    localFilePath = path.join(workspaceFolders[0].uri.fsPath, projectName, filePath);
+                } else {
+                    // Path is relative to workspace root
+                    localFilePath = path.join(workspaceFolders[0].uri.fsPath, filePath);
+                }
+            }
+
+            // Group by file path
+            const fileKey = filePath;
+            if (!fileMap.has(fileKey)) {
+                fileMap.set(fileKey, { directory, lines: [], fullPath: localFilePath || '' });
+            }
+
+            fileMap.get(fileKey)!.lines.push(new SearchResultLine(lineNumber, fullUrl, context, searchTerm, localFilePath));
+        }
+    }
+
+    // Convert map to array of SearchResultFile objects
+    const searchResults: SearchResultFile[] = [];
+    for (const [filePath, fileData] of fileMap) {
+        const pathParts = filePath.split('/');
+        const filename = pathParts[pathParts.length - 1];
+
+        // Sort lines by line number
+        fileData.lines.sort((a, b) => a.lineNumber - b.lineNumber);
+
+        searchResults.push(new SearchResultFile(
+            filename,
+            fileData.directory,
+            fileData.lines,
+            vscode.TreeItemCollapsibleState.Collapsed
+        ));
+    }
+
+    // Sort results by filename
+    searchResults.sort((a, b) => a.filename.localeCompare(b.filename));
+
+    return searchResults;
 }
 
 // Parse OpenGrok HTML search results
@@ -601,15 +774,17 @@ export function activate(context: vscode.ExtensionContext) {
             cancellable: false
         }, async () => {
             try {
-                // Clear and show the output channel for debug info
-                outputChannel.clear();
-                outputChannel.show(true); // Show but don't take focus
-                outputChannel.appendLine(`Searching for: "${searchText}"`);
-                outputChannel.appendLine(`Project: ${projectName}`);
-                outputChannel.appendLine('');
+                const result = await searchOpenGrokAPI(baseUrl, searchText, projectName, outputChannel);
 
-                const result = await searchOpenGrokAPI(baseUrl, searchText, projectName);
-                const parsedResults = parseOpenGrokResults(result.html, baseUrl, projectName, useTopLevelFolder, searchText, outputChannel);
+                let parsedResults: SearchResultFile[];
+                if (result.type === 'json') {
+                    // Use REST API JSON response
+                    parsedResults = parseOpenGrokJSON(result.json, baseUrl, projectName, useTopLevelFolder, searchText);
+                } else {
+                    // Fallback to HTML parsing
+                    parsedResults = parseOpenGrokResults(result.html, baseUrl, projectName, useTopLevelFolder, searchText, outputChannel);
+                }
+
                 searchResultsProvider.setResults(parsedResults);
 
                 // Reveal the TreeView

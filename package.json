@@ -26,11 +26,11 @@
       },
       {
         "command": "opengrok-navigator.searchInOpenGrok",
-        "title": "Search in OpenGrok"
+        "title": "Search in OpenGrok (Browser)"
       },
       {
         "command": "opengrok-navigator.searchInView",
-        "title": "Search in OpenGrok (View Results)"
+        "title": "Search in OpenGrok (VS Code)"
       },
       {
         "command": "opengrok-navigator.clearSearchResults",

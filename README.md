@@ -6,9 +6,9 @@ A VS Code extension that allows you to quickly open the current line of code in 
 
 - **Open in OpenGrok**: Press `Ctrl+Shift+O` (Windows/Linux) or `Cmd+Shift+O` (Mac) to open the current line in OpenGrok
 - **Copy OpenGrok URL**: Press `Ctrl+Shift+C` (Windows/Linux) or `Cmd+Shift+C` (Mac) to copy the OpenGrok URL to clipboard
-- **Search in OpenGrok (Web)**: Press `Ctrl+Shift+F` (Windows/Linux) or `Cmd+Shift+F` (Mac) to search in the web interface
-- **Search in OpenGrok (View Results)**: Press `Ctrl+Alt+F` (Windows/Linux) or `Cmd+Alt+F` (Mac) to search and display results in VS Code sidebar
-- **Context Menu**: Right-click in the editor and select "Open in OpenGrok", "Copy OpenGrok URL", "Search in OpenGrok", or "Search in OpenGrok (View Results)"
+- **Search in OpenGrok (Browser)**: Press `Ctrl+Shift+F` (Windows/Linux) or `Cmd+Shift+F` (Mac) to search and open results in your browser
+- **Search in OpenGrok (VS Code)**: Press `Ctrl+Alt+F` (Windows/Linux) or `Cmd+Alt+F` (Mac) to search and display results in VS Code sidebar
+- **Context Menu**: Right-click in the editor and select "Open in OpenGrok", "Copy OpenGrok URL", "Search in OpenGrok (Browser)", or "Search in OpenGrok (VS Code)"
 - **Configurable**: Set your OpenGrok base URL in VS Code settings
 - **Integrated Browser**: Optionally open links in VS Code's built-in Simple Browser
 
@@ -98,12 +98,12 @@ http://localhost:8080/source/xref/workspace-root/project-a/src/main.ts#10
 
 ### Searching in OpenGrok
 
-#### Option 1: Search in Web Browser
+#### Option 1: Search in Browser
 
 1. Optionally, select text in the editor that you want to search for
 2. Use one of the following methods:
    - Press `Ctrl+Shift+F` (Windows/Linux) or `Cmd+Shift+F` (Mac)
-   - Right-click and select "Search in OpenGrok" from the context menu
+   - Right-click and select "Search in OpenGrok (Browser)" from the context menu
 3. If you had text selected, it will search for that text. Otherwise, you'll be prompted to enter a search term
 4. The search query will be quoted for an exact match (e.g., `"searchTerm"`)
 5. OpenGrok search results will open in your browser
@@ -113,10 +113,10 @@ http://localhost:8080/source/xref/workspace-root/project-a/src/main.ts#10
 1. Optionally, select text in the editor that you want to search for
 2. Use one of the following methods:
    - Press `Ctrl+Alt+F` (Windows/Linux) or `Cmd+Alt+F` (Mac)
-   - Right-click and select "Search in OpenGrok (View Results)" from the context menu
+   - Right-click and select "Search in OpenGrok (VS Code)" from the context menu
 3. If you had text selected, it will search for that text. Otherwise, you'll be prompted to enter a search term
 4. Results will appear in the **OpenGrok Search** view in the Explorer sidebar
-5. Click on any result to open it in your browser
+5. Click on any result to open the file in VS Code (if available locally) or in your browser
 6. Use the clear button (X) in the view title to clear results
 
 ## How It Works
@@ -145,8 +145,8 @@ The extension:
 Initial release with:
 - Open in OpenGrok with keyboard shortcut (`Ctrl+Shift+O` / `Cmd+Shift+O`)
 - Copy OpenGrok URL with keyboard shortcut (`Ctrl+Shift+C` / `Cmd+Shift+C`)
-- Search in OpenGrok web interface (`Ctrl+Shift+F` / `Cmd+Shift+F`)
-- Search with results in VS Code sidebar (`Ctrl+Alt+F` / `Cmd+Alt+F`)
+- Search in OpenGrok (Browser) - opens results in browser (`Ctrl+Shift+F` / `Cmd+Shift+F`)
+- Search in OpenGrok (VS Code) - displays results in sidebar (`Ctrl+Alt+F` / `Cmd+Alt+F`)
 - Context menu integration for all commands
 - Configurable OpenGrok base URL
 - Optional integrated Simple Browser support
@@ -154,6 +154,8 @@ Initial release with:
 - Line number navigation
 - Quoted search queries for exact matches
 - Interactive search results TreeView with clickable links
+- REST API support with HTML fallback for compatibility
+- Search term highlighting in results
 
 ## Contributing
 
