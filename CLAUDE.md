@@ -47,9 +47,11 @@ A VS Code extension that integrates with OpenGrok for code navigation and search
 5. **Commands** ([src/extension.ts:500-742](src/extension.ts#L500-L742))
    - `openInOpenGrok`: Opens current line in OpenGrok (browser or integrated)
    - `copyOpenGrokUrl`: Copies URL to clipboard
-   - `searchInOpenGrok`: Opens search in browser
-   - `searchInView`: Searches and displays results in sidebar TreeView
+   - `searchInOpenGrok`: Opens search in browser for current project
+   - `searchInView`: Searches current project and displays results in sidebar TreeView
+   - `searchAllProjects`: Searches across all projects and opens results in browser
    - `clearSearchResults`: Clears the TreeView
+   - `clearPassword`: Clears stored authentication password
    - `openFileInEditor`: Opens local file at specific line (used by TreeView clicks)
 
 ### URL Construction
@@ -77,6 +79,8 @@ useTopLevelFolder: http://localhost:8080/source/xref/project-a/src/main.ts#10
 | `opengrok-navigator.projectRoot` | string | `""` | Optional project root path override |
 | `opengrok-navigator.useIntegratedBrowser` | boolean | `false` | Use VS Code's Simple Browser instead of external browser |
 | `opengrok-navigator.useTopLevelFolder` | boolean | `false` | Use top-level folder name as project name (for multi-project workspaces) |
+| `opengrok-navigator.authEnabled` | boolean | `false` | Enable HTTP Basic Authentication |
+| `opengrok-navigator.authUsername` | string | `""` | Username for HTTP Basic Authentication |
 
 ## Keyboard Shortcuts
 
@@ -84,8 +88,9 @@ useTopLevelFolder: http://localhost:8080/source/xref/project-a/src/main.ts#10
 |--------|--------------|-----|
 | Open in OpenGrok | `Ctrl+Shift+O` | `Cmd+Shift+O` |
 | Copy OpenGrok URL | `Ctrl+Shift+C` | `Cmd+Shift+C` |
-| Search in OpenGrok (Web) | `Ctrl+Shift+F` | `Cmd+Shift+F` |
-| Search in OpenGrok (View Results) | `Ctrl+Alt+F` | `Cmd+Alt+F` |
+| Search Current Project (Browser) | `Ctrl+Shift+F` | `Cmd+Shift+F` |
+| Search Current Project (VS Code) | `Ctrl+Alt+F` | `Cmd+Alt+F` |
+| Search All Projects (Browser) | `Ctrl+Shift+Alt+F` | `Cmd+Shift+Alt+F` |
 
 ## Key Implementation Details
 
@@ -194,12 +199,19 @@ An output channel "OpenGrok Navigator" displays debug info during searches:
 - Highlights are case-insensitive and find all occurrences
 - Visual appearance matches VS Code's native search results
 
+**Search Result Display** (iteration 3):
+- Removed line numbers from result rows entirely for cleaner UI
+- Removed icons from result line items
+- Enhanced click behavior to select the search term within the line
+- Case-insensitive search term detection and selection
+- Falls back to cursor at line start if search term not found in line
+
 **TreeView Organization**:
 - Files grouped and collapsible (start collapsed)
 - Lines sorted by line number within files
 - Files sorted alphabetically
-- Click behavior: Opens local file in editor at correct line (if path exists), otherwise opens in browser
-- Directory name shown as description (without trailing slash)
+- Click behavior: Opens local file in editor at correct line, selects search term (if path exists), otherwise opens in browser
+- Directory name shown in file item description
 - Tooltip shows full context with line number
 
 ## Files
@@ -232,9 +244,27 @@ The search commands have clear names indicating where results appear:
 
 This naming scheme makes it immediately clear to users what will happen when they invoke each command.
 
+## Authentication
+
+The extension supports HTTP Basic Authentication for secured OpenGrok instances:
+
+**Implementation** ([src/extension.ts:136-191](src/extension.ts#L136-L191)):
+- Password stored securely using VS Code's SecretStorage API (encrypted, not in settings.json)
+- Prompts for password on first use when auth is enabled
+- Password persists across VS Code sessions
+- Applied to both REST API and HTML fallback requests
+- Command to clear stored password: `opengrok-navigator.clearPassword`
+
+**Security Features**:
+- Password never stored in plain text
+- Uses VS Code's built-in secrets management
+- Base64 encoding for HTTP Basic Auth header
+- Works with both HTTP and HTTPS
+
 ## Future Considerations
 
 - REST API provides cleaner results, but HTML fallback ensures compatibility with older OpenGrok instances
 - Potential feature: Search history
 - Potential feature: Filter results by file type
 - Potential enhancement: Support other OpenGrok REST API endpoints (definition search, symbol search, etc.)
+- Potential enhancement: Support for API token authentication (Bearer tokens)

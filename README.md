@@ -6,9 +6,10 @@ A VS Code extension that allows you to quickly open the current line of code in 
 
 - **Open in OpenGrok**: Press `Ctrl+Shift+O` (Windows/Linux) or `Cmd+Shift+O` (Mac) to open the current line in OpenGrok
 - **Copy OpenGrok URL**: Press `Ctrl+Shift+C` (Windows/Linux) or `Cmd+Shift+C` (Mac) to copy the OpenGrok URL to clipboard
-- **Search in OpenGrok (Browser)**: Press `Ctrl+Shift+F` (Windows/Linux) or `Cmd+Shift+F` (Mac) to search and open results in your browser
-- **Search in OpenGrok (VS Code)**: Press `Ctrl+Alt+F` (Windows/Linux) or `Cmd+Alt+F` (Mac) to search and display results in VS Code sidebar
-- **Context Menu**: Right-click in the editor and select "Open in OpenGrok", "Copy OpenGrok URL", "Search in OpenGrok (Browser)", or "Search in OpenGrok (VS Code)"
+- **Search in OpenGrok (Browser)**: Press `Ctrl+Shift+F` (Windows/Linux) or `Cmd+Shift+F` (Mac) to search current project and open results in your browser
+- **Search in OpenGrok (VS Code)**: Press `Ctrl+Alt+F` (Windows/Linux) or `Cmd+Alt+F` (Mac) to search current project and display results in VS Code sidebar
+- **Search All Projects**: Press `Ctrl+Shift+Alt+F` (Windows/Linux) or `Cmd+Shift+Alt+F` (Mac) to search across all projects and open results in your browser
+- **Context Menu**: Right-click in the editor and select from available OpenGrok commands
 - **Configurable**: Set your OpenGrok base URL in VS Code settings
 - **Integrated Browser**: Optionally open links in VS Code's built-in Simple Browser
 
@@ -47,9 +48,21 @@ Example settings in `settings.json`:
   "opengrok-navigator.baseUrl": "http://localhost:8080/source",
   "opengrok-navigator.projectRoot": "",
   "opengrok-navigator.useIntegratedBrowser": false,
-  "opengrok-navigator.useTopLevelFolder": false
+  "opengrok-navigator.useTopLevelFolder": false,
+  "opengrok-navigator.authEnabled": false,
+  "opengrok-navigator.authUsername": ""
 }
 ```
+
+### Authentication
+
+If your OpenGrok instance requires HTTP Basic Authentication:
+
+1. Enable authentication in settings: `"opengrok-navigator.authEnabled": true`
+2. Set your username: `"opengrok-navigator.authUsername": "your-username"`
+3. The first time you search, you'll be prompted for your password
+4. Your password is stored securely using VS Code's SecretStorage API (not in plain text)
+5. To clear your stored password, run the command "Clear Stored OpenGrok Password"
 
 ### Multi-Project Workspaces
 
@@ -98,7 +111,7 @@ http://localhost:8080/source/xref/workspace-root/project-a/src/main.ts#10
 
 ### Searching in OpenGrok
 
-#### Option 1: Search in Browser
+#### Option 1: Search Current Project in Browser
 
 1. Optionally, select text in the editor that you want to search for
 2. Use one of the following methods:
@@ -106,9 +119,9 @@ http://localhost:8080/source/xref/workspace-root/project-a/src/main.ts#10
    - Right-click and select "Search in OpenGrok (Browser)" from the context menu
 3. If you had text selected, it will search for that text. Otherwise, you'll be prompted to enter a search term
 4. The search query will be quoted for an exact match (e.g., `"searchTerm"`)
-5. OpenGrok search results will open in your browser
+5. OpenGrok search results for the current project will open in your browser
 
-#### Option 2: Search and View Results in VS Code
+#### Option 2: Search Current Project and View Results in VS Code
 
 1. Optionally, select text in the editor that you want to search for
 2. Use one of the following methods:
@@ -118,6 +131,16 @@ http://localhost:8080/source/xref/workspace-root/project-a/src/main.ts#10
 4. Results will appear in the **OpenGrok Search** view in the Explorer sidebar
 5. Click on any result to open the file in VS Code (if available locally) or in your browser
 6. Use the clear button (X) in the view title to clear results
+
+#### Option 3: Search Across All Projects
+
+1. Optionally, select text in the editor that you want to search for
+2. Use one of the following methods:
+   - Press `Ctrl+Shift+Alt+F` (Windows/Linux) or `Cmd+Shift+Alt+F` (Mac)
+   - Right-click and select "Search All Projects in OpenGrok" from the context menu
+3. If you had text selected, it will search for that text. Otherwise, you'll be prompted to enter a search term
+4. The search query will be quoted for an exact match (e.g., `"searchTerm"`)
+5. OpenGrok search results across ALL projects will open in your browser
 
 ## How It Works
 
@@ -147,6 +170,7 @@ Initial release with:
 - Copy OpenGrok URL with keyboard shortcut (`Ctrl+Shift+C` / `Cmd+Shift+C`)
 - Search in OpenGrok (Browser) - opens results in browser (`Ctrl+Shift+F` / `Cmd+Shift+F`)
 - Search in OpenGrok (VS Code) - displays results in sidebar (`Ctrl+Alt+F` / `Cmd+Alt+F`)
+- Search All Projects - search across all projects (`Ctrl+Shift+Alt+F` / `Cmd+Shift+Alt+F`)
 - Context menu integration for all commands
 - Configurable OpenGrok base URL
 - Optional integrated Simple Browser support
@@ -156,6 +180,7 @@ Initial release with:
 - Interactive search results TreeView with clickable links
 - REST API support with HTML fallback for compatibility
 - Search term highlighting in results
+- HTTP Basic Authentication support with secure password storage
 
 ## Contributing
 

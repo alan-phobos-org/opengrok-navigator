@@ -20,8 +20,10 @@
 * Things got really funny then. It basically just gave up with the VSCode debug mechanisms and invented it's own output window which it could make visible when it wanted to that I couldn't miss!
 * It was at this point that I realised Claude had gone off and started parsing the HTML (using regex!) rather than using the REST API!
 * I eventually got it to do context highlighting too, but I was left wondering if there wasn't a better way to do all this using a different widget?
+* I later discovered via the CLAUDE.md file that it left the HTML stuff in as a fallback
 
 ## Observations
 
 * It was much faster to write the initial simple extension with Claude and it nailed all the boilerplate
 * However as things got more complicated it was easier to simply fix the code by hand than walk it through debugging sessions
+* It's really not clear when to ask it to go and research something first vs just have a go itself and debug (a bit like in the real world!)

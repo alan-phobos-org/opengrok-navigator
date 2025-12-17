@@ -33,9 +33,17 @@
         "title": "Search in OpenGrok (VS Code)"
       },
       {
+        "command": "opengrok-navigator.searchAllProjects",
+        "title": "Search All Projects in OpenGrok"
+      },
+      {
         "command": "opengrok-navigator.clearSearchResults",
         "title": "Clear OpenGrok Search Results",
         "icon": "$(close)"
+      },
+      {
+        "command": "opengrok-navigator.clearPassword",
+        "title": "Clear Stored OpenGrok Password"
       }
     ],
     "keybindings": [
@@ -62,6 +70,12 @@
         "key": "ctrl+alt+f",
         "mac": "cmd+alt+f",
         "when": "editorTextFocus"
+      },
+      {
+        "command": "opengrok-navigator.searchAllProjects",
+        "key": "ctrl+shift+alt+f",
+        "mac": "cmd+shift+alt+f",
+        "when": "editorTextFocus"
       }
     ],
     "menus": {
@@ -83,6 +97,11 @@
         },
         {
           "command": "opengrok-navigator.searchInView",
+          "when": "editorTextFocus",
+          "group": "navigation"
+        },
+        {
+          "command": "opengrok-navigator.searchAllProjects",
           "when": "editorTextFocus",
           "group": "navigation"
         }
@@ -131,6 +150,16 @@
           "type": "boolean",
           "default": false,
           "description": "Use the top-level folder name (within workspace) as the OpenGrok project name instead of the workspace name. Useful for workspaces containing multiple projects."
+        },
+        "opengrok-navigator.authEnabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable HTTP Basic Authentication for OpenGrok requests"
+        },
+        "opengrok-navigator.authUsername": {
+          "type": "string",
+          "default": "",
+          "description": "Username for HTTP Basic Authentication (password stored securely)"
         }
       }
     }

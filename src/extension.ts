@@ -40,7 +40,6 @@ class SearchResultLineItem extends vscode.TreeItem {
         super(line.context, vscode.TreeItemCollapsibleState.None);
         this.contextValue = 'searchResultLine';
         this.tooltip = `Line ${line.lineNumber}: ${line.context}`;
-        this.description = `${line.lineNumber}`;
 
         // Add highlighting for the search term
         const searchTerm = line.searchTerm.toLowerCase();
@@ -70,7 +69,7 @@ class SearchResultLineItem extends vscode.TreeItem {
             this.command = {
                 command: 'opengrok-navigator.openFileInEditor',
                 title: 'Open File',
-                arguments: [line.filePath, line.lineNumber]
+                arguments: [line.filePath, line.lineNumber, line.searchTerm]
             };
         } else {
             this.command = {
@@ -80,8 +79,6 @@ class SearchResultLineItem extends vscode.TreeItem {
             };
         }
     }
-
-    iconPath = new vscode.ThemeIcon('symbol-numeric');
 }
 
 // TreeView data provider for search results
@@ -136,8 +133,8 @@ interface OpenGrokAPIResponse {
 }
 
 // Function to perform OpenGrok API search
-async function searchOpenGrokAPI(baseUrl: string, searchText: string, projectName: string, outputChannel?: vscode.OutputChannel): Promise<any> {
-    return new Promise((resolve, reject) => {
+async function searchOpenGrokAPI(baseUrl: string, searchText: string, projectName: string, context: vscode.ExtensionContext, outputChannel?: vscode.OutputChannel): Promise<any> {
+    return new Promise(async (resolve, reject) => {
         const quotedSearchText = `"${searchText}"`;
         const encodedSearchText = encodeURIComponent(quotedSearchText);
 
@@ -150,14 +147,56 @@ async function searchOpenGrokAPI(baseUrl: string, searchText: string, projectNam
         const urlObj = new URL(searchUrl);
         const protocol = urlObj.protocol === 'https:' ? https : http;
 
-        const req = protocol.get(searchUrl, (res) => {
+        // Get authentication configuration
+        const config = vscode.workspace.getConfiguration('opengrok-navigator');
+        const authEnabled = config.get<boolean>('authEnabled', false);
+        const username = config.get<string>('authUsername', '');
+
+        // Prepare request options
+        const requestOptions: any = {};
+
+        if (authEnabled && username) {
+            // Get password from secure storage
+            const password = await context.secrets.get('opengrok-password');
+
+            if (!password) {
+                // Prompt for password if not stored
+                const inputPassword = await vscode.window.showInputBox({
+                    prompt: 'Enter OpenGrok password',
+                    password: true,
+                    placeHolder: 'Password'
+                });
+
+                if (!inputPassword) {
+                    reject(new Error('Authentication required but no password provided'));
+                    return;
+                }
+
+                // Store password securely
+                await context.secrets.store('opengrok-password', inputPassword);
+
+                // Set auth header
+                const auth = Buffer.from(`${username}:${inputPassword}`).toString('base64');
+                requestOptions.headers = {
+                    'Authorization': `Basic ${auth}`
+                };
+            } else {
+                // Use stored password
+                const auth = Buffer.from(`${username}:${password}`).toString('base64');
+                requestOptions.headers = {
+                    'Authorization': `Basic ${auth}`
+                };
+            }
+        }
+
+        const req = protocol.get(searchUrl, requestOptions, (res) => {
             const statusCode = res.statusCode || 0;
 
             // If we get 404, the REST API doesn't exist - fall back to HTML
             if (statusCode === 404) {
                 // Fall back to HTML search
                 const htmlSearchUrl = `${baseUrl}/search?full=${encodedSearchText}${projectName ? '&project=' + encodeURIComponent(projectName) : ''}`;
-                const htmlReq = protocol.get(htmlSearchUrl, (htmlRes) => {
+                const htmlReq = protocol.get(htmlSearchUrl, requestOptions, (htmlRes) => {
                     let htmlData = '';
                     htmlRes.on('data', (chunk) => { htmlData += chunk; });
                     htmlRes.on('end', () => {
@@ -774,7 +813,7 @@ export function activate(context: vscode.ExtensionContext) {
             cancellable: false
         }, async () => {
             try {
-                const result = await searchOpenGrokAPI(baseUrl, searchText, projectName, outputChannel);
+                const result = await searchOpenGrokAPI(baseUrl, searchText, projectName, context, outputChannel);
 
                 let parsedResults: SearchResultFile[];
                 if (result.type === 'json') {
@@ -804,8 +843,75 @@ export function activate(context: vscode.ExtensionContext) {
         searchResultsProvider.clear();
     });
 
+    // Command: Clear stored password
+    let clearPasswordDisposable = vscode.commands.registerCommand('opengrok-navigator.clearPassword', async () => {
+        await context.secrets.delete('opengrok-password');
+        vscode.window.showInformationMessage('OpenGrok password cleared from secure storage');
+    });
+
+    // Command: Search all projects in OpenGrok
+    let searchAllProjectsDisposable = vscode.commands.registerCommand('opengrok-navigator.searchAllProjects', async () => {
+        const editor = vscode.window.activeTextEditor;
+        const config = vscode.workspace.getConfiguration('opengrok-navigator');
+        const baseUrl = config.get<string>('baseUrl');
+
+        if (!baseUrl) {
+            vscode.window.showErrorMessage('OpenGrok base URL is not configured. Please set it in settings.');
+            return;
+        }
+
+        // Get selected text or prompt for search term
+        let searchText = '';
+        if (editor && !editor.selection.isEmpty) {
+            searchText = editor.document.getText(editor.selection);
+        }
+
+        // If no selection, prompt for search term
+        if (!searchText) {
+            const input = await vscode.window.showInputBox({
+                prompt: 'Enter text to search across all projects in OpenGrok',
+                placeHolder: 'Search term'
+            });
+
+            if (!input) {
+                return; // User cancelled
+            }
+            searchText = input;
+        }
+
+        // URL encode and quote the search text for exact match
+        const quotedSearchText = `"${searchText}"`;
+        const encodedSearchText = encodeURIComponent(quotedSearchText);
+
+        // Construct OpenGrok search URL with searchall=true to search all projects
+        const searchUrl = `${baseUrl}/search?full=${encodedSearchText}&searchall=true`;
+
+        const useIntegratedBrowser = config.get<boolean>('useIntegratedBrowser', false);
+
+        // Open search results in browser (integrated or external based on setting)
+        if (useIntegratedBrowser) {
+            try {
+                await vscode.commands.executeCommand('simpleBrowser.show', searchUrl);
+            } catch (error) {
+                vscode.window.showErrorMessage(
+                    `Failed to open in Simple Browser: ${error instanceof Error ? error.message : 'Unknown error'}`,
+                    'Open Settings',
+                    'Use External Browser'
+                ).then(selection => {
+                    if (selection === 'Open Settings') {
+                        vscode.commands.executeCommand('workbench.action.openSettings', 'opengrok-navigator.useIntegratedBrowser');
+                    } else if (selection === 'Use External Browser') {
+                        vscode.env.openExternal(vscode.Uri.parse(searchUrl));
+                    }
+                });
+            }
+        } else {
+            await vscode.env.openExternal(vscode.Uri.parse(searchUrl));
+        }
+    });
+
     // Command: Open file in editor
-    let openFileDisposable = vscode.commands.registerCommand('opengrok-navigator.openFileInEditor', async (filePath: string, lineNumber?: number) => {
+    let openFileDisposable = vscode.commands.registerCommand('opengrok-navigator.openFileInEditor', async (filePath: string, lineNumber?: number, searchTerm?: string) => {
         try {
             const uri = vscode.Uri.file(filePath);
             const document = await vscode.workspace.openTextDocument(uri);
@@ -813,9 +919,32 @@ export function activate(context: vscode.ExtensionContext) {
 
             // If line number is provided, navigate to that line
             if (lineNumber !== undefined && lineNumber > 0) {
-                const position = new vscode.Position(lineNumber - 1, 0); // VS Code lines are 0-indexed
-                editor.selection = new vscode.Selection(position, position);
-                editor.revealRange(new vscode.Range(position, position), vscode.TextEditorRevealType.InCenter);
+                const lineIndex = lineNumber - 1; // VS Code lines are 0-indexed
+                const line = document.lineAt(lineIndex);
+
+                // If search term is provided, find and select it within the line
+                if (searchTerm) {
+                    const lineText = line.text;
+                    const searchIndex = lineText.toLowerCase().indexOf(searchTerm.toLowerCase());
+
+                    if (searchIndex !== -1) {
+                        // Select the search term
+                        const startPos = new vscode.Position(lineIndex, searchIndex);
+                        const endPos = new vscode.Position(lineIndex, searchIndex + searchTerm.length);
+                        editor.selection = new vscode.Selection(startPos, endPos);
+                        editor.revealRange(new vscode.Range(startPos, endPos), vscode.TextEditorRevealType.InCenter);
+                    } else {
+                        // If search term not found, just go to the line
+                        const position = new vscode.Position(lineIndex, 0);
+                        editor.selection = new vscode.Selection(position, position);
+                        editor.revealRange(new vscode.Range(position, position), vscode.TextEditorRevealType.InCenter);
+                    }
+                } else {
+                    // No search term, just go to the line
+                    const position = new vscode.Position(lineIndex, 0);
+                    editor.selection = new vscode.Selection(position, position);
+                    editor.revealRange(new vscode.Range(position, position), vscode.TextEditorRevealType.InCenter);
+                }
             }
         } catch (error) {
             vscode.window.showErrorMessage(`Failed to open file: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -828,6 +957,8 @@ export function activate(context: vscode.ExtensionContext) {
         searchDisposable,
         searchInViewDisposable,
         clearResultsDisposable,
+        clearPasswordDisposable,
+        searchAllProjectsDisposable,
         openFileDisposable
     );
 }
