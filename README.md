@@ -1,191 +1,126 @@
 # OpenGrok Navigator
 
-A VS Code extension that allows you to quickly open the current line of code in your OpenGrok instance.
+**Seamless bidirectional navigation between OpenGrok and VS Code** 🚀
 
-## Features
+Bridge the gap between your browser-based code exploration and local development environment with two powerful extensions that work together to supercharge your workflow.
 
-- **Open in OpenGrok**: Press `Ctrl+Shift+G O` (Windows/Linux) or `Cmd+Shift+G O` (Mac) to open the current line in OpenGrok
-- **Copy OpenGrok URL**: Press `Ctrl+Shift+G C` (Windows/Linux) or `Cmd+Shift+G C` (Mac) to copy the OpenGrok URL to clipboard
-- **Search Current Project (Browser)**: Press `Ctrl+Shift+G S` (Windows/Linux) or `Cmd+Shift+G S` (Mac) to search current project and open results in your browser
-- **Search Current Project (VS Code)**: Press `Ctrl+Shift+G V` (Windows/Linux) or `Cmd+Shift+G V` (Mac) to search current project and display results in VS Code sidebar
-- **Search All Projects (Browser)**: Press `Ctrl+Shift+G A` (Windows/Linux) or `Cmd+Shift+G A` (Mac) to search across all projects and open results in your browser
-- **Context Menu**: Right-click in the editor and select from available OpenGrok commands
-- **Configurable**: Set your OpenGrok base URL in VS Code settings
-- **Integrated Browser**: Optionally open links in VS Code's built-in Simple Browser
+## ✨ Features at a Glance
 
-## Installation
+### 🔵 VS Code Extension
+Navigate **FROM** VS Code **TO** OpenGrok with instant search and navigation:
+- **⚡ Quick Jump**: Press `Ctrl+Shift+G O` to open any line in OpenGrok instantly
+- **🔍 Integrated Search**: Search OpenGrok directly from VS Code with results in your sidebar
+- **📋 Smart URLs**: Copy OpenGrok URLs with perfect line numbers
+- **🎯 Project-Aware**: Automatically maps your workspace to OpenGrok projects
+- **🔐 Secure Auth**: Built-in HTTP Basic Authentication with encrypted password storage
+- **🌐 Cross-Project Search**: Search across all OpenGrok projects from one command
 
-### From Source
+### 🟢 Chrome Extension
+Navigate **FROM** OpenGrok **TO** VS Code with one click:
+- **✨ Click-to-Open**: Ctrl+Click any line number to open directly in VS Code
+- **🔄 Live Sync**: Toggle real-time synchronization - VS Code follows your OpenGrok browsing
+- **👁️ Hover Previews**: See file info before opening
+- **⚙️ Smart Mapping**: Configure custom project-to-workspace mappings
+- **🔍 Quick File Finder** _(Experimental)_: Press `T` for fuzzy file search (GitHub-style)
+- **🎨 Floating Toolbar**: Unobtrusive buttons that appear only on file pages
 
-1. Clone or download this extension
-2. Open the extension folder in VS Code
-3. Run `npm install` to install dependencies
-4. Run `npm run compile` to compile the TypeScript code
-5. Press `F5` to launch a new VS Code window with the extension loaded
+## 🚀 Quick Start
 
-### Packaging and Installing
+### Installing the VS Code Extension
 
-1. Install vsce: `npm install -g @vscode/vsce`
-2. Package the extension: `vsce package`
-3. Install the `.vsix` file: In VS Code, go to Extensions → "..." menu → "Install from VSIX"
+```bash
+cd vscode-extension
+npm install
+npm run compile
+```
 
-## Configuration
+Then press `F5` in VS Code or package with `vsce package` and install the `.vsix` file.
 
-Before using the extension, configure your OpenGrok base URL:
-
-1. Open VS Code Settings (`Ctrl+,` or `Cmd+,`)
-2. Search for "OpenGrok Navigator"
-3. Set the following settings:
-   - **Base URL**: Your OpenGrok instance URL (e.g., `http://opengrok.example.com/source`)
-   - **Project Root** (optional): If your project in OpenGrok has a different root path
-   - **Use Integrated Browser** (optional): Enable to open OpenGrok links in VS Code's built-in Simple Browser instead of your system browser (default: disabled)
-   - **Use Top Level Folder** (optional): Use the top-level folder name within the workspace as the OpenGrok project name instead of the workspace name. Useful for workspaces containing multiple projects (default: disabled)
-
-Example settings in `settings.json`:
-
+**Configure your OpenGrok instance:**
 ```json
 {
-  "opengrok-navigator.baseUrl": "http://localhost:8080/source",
-  "opengrok-navigator.projectRoot": "",
-  "opengrok-navigator.useIntegratedBrowser": false,
-  "opengrok-navigator.useTopLevelFolder": false,
-  "opengrok-navigator.authEnabled": false,
-  "opengrok-navigator.authUsername": ""
+  "opengrok-navigator.baseUrl": "http://localhost:8080/source"
 }
 ```
 
-### Authentication
+**Keyboard shortcuts:**
+- `Ctrl+Shift+G O` - Open in OpenGrok
+- `Ctrl+Shift+G C` - Copy URL
+- `Ctrl+Shift+G V` - Search and view results in VS Code
+- `Ctrl+Shift+G S` - Search and open in browser
 
-If your OpenGrok instance requires HTTP Basic Authentication:
+### Installing the Chrome Extension
 
-1. Enable authentication in settings: `"opengrok-navigator.authEnabled": true`
-2. Set your username: `"opengrok-navigator.authUsername": "your-username"`
-3. The first time you search, you'll be prompted for your password
-4. Your password is stored securely using VS Code's SecretStorage API (not in plain text)
-5. To clear your stored password, run the command "Clear Stored OpenGrok Password"
+1. Navigate to `chrome://extensions/`
+2. Enable "Developer mode"
+3. Click "Load unpacked"
+4. Select the `chrome-extension` directory
+
+**Configure project mappings** in the extension options to map OpenGrok projects to your local workspace directories.
+
+## 💡 Why Use This?
+
+**For Code Explorers**: Browse massive codebases in OpenGrok's powerful web interface, then instantly open files locally for editing.
+
+**For Researchers**: Search across projects in OpenGrok, then seamlessly jump into VS Code to make changes.
+
+**For Teams**: Share OpenGrok URLs with perfect line numbers, knowing teammates can open them locally with one click.
+
+## 🎯 Perfect For
+
+- 📚 **Large Codebases**: Navigate projects too big for local checkout
+- 🔍 **Code Archaeology**: Search historical versions in OpenGrok, edit current in VS Code
+- 🤝 **Team Collaboration**: Share precise code references that open locally
+- 🎓 **Learning**: Study open-source projects with back-and-forth navigation
+- 🔧 **System Programming**: Essential for OS/kernel development workflows
+
+## 📖 Documentation
+
+- [Chrome Extension Details](chrome-extension/README.md)
+- [Design Documentation](docs/)
+- [Feature Roadmap](docs/FEATURE_SUGGESTIONS.md)
+
+## 🛠️ Advanced Features
 
 ### Multi-Project Workspaces
+Enable `useTopLevelFolder` mode when your workspace contains multiple projects mapped to different OpenGrok projects.
 
-If your workspace contains multiple projects (each in its own top-level folder) and each maps to a different OpenGrok project, enable the **Use Top Level Folder** option:
+### Authentication
+Supports HTTP Basic Authentication with secure password storage via VS Code's SecretStorage API.
 
-**Example structure:**
-```
-/workspace-root/
-├── project-a/
-│   └── src/
-│       └── main.ts
-└── project-b/
-    └── src/
-        └── main.ts
-```
+### Live Sync
+The Chrome extension can automatically open files in VS Code as you navigate through OpenGrok - perfect for code reviews and exploration sessions.
 
-With `useTopLevelFolder: true`, files in `project-a/src/main.ts` will generate URLs like:
-```
-http://localhost:8080/source/xref/project-a/src/main.ts#10
-```
+### Search Integration
+Search results appear as an interactive tree view in VS Code with:
+- Syntax-highlighted search terms
+- One-click navigation to results
+- Local file opening when available
+- Fallback to browser for remote-only files
 
-Instead of the default (workspace name):
-```
-http://localhost:8080/source/xref/workspace-root/project-a/src/main.ts#10
-```
+## 🔧 Requirements
 
-## Usage
+- **VS Code**: 1.74.0 or higher
+- **Chrome/Edge**: Modern Chromium-based browser
+- **OpenGrok**: Any version (REST API support recommended, HTML fallback included)
+- **VS Code URI Handler**: Must be registered (happens automatically on install)
 
-### Opening in OpenGrok
+## 📝 How It Works
 
-1. Open a file in VS Code
-2. Place your cursor on the line you want to view in OpenGrok
-3. Use one of the following methods:
-   - Press `Ctrl+Shift+G O` (Windows/Linux) or `Cmd+Shift+G O` (Mac)
-   - Right-click and select "Open in OpenGrok" from the context menu
-4. Your browser will open to the corresponding line in OpenGrok
+**VS Code → OpenGrok**
+The extension constructs OpenGrok URLs from your file path and line number, supporting both single and multi-project workspaces.
 
-### Copying OpenGrok URL
+**OpenGrok → VS Code**
+The Chrome extension uses the `vscode://` URI protocol to communicate with VS Code. Configure project mappings to tell it where your local repositories live.
 
-1. Open a file in VS Code
-2. Place your cursor on the line you want to reference
-3. Use one of the following methods:
-   - Press `Ctrl+Shift+G C` (Windows/Linux) or `Cmd+Shift+G C` (Mac)
-   - Right-click and select "Copy OpenGrok URL" from the context menu
-4. The URL will be copied to your clipboard
+## 🤝 Contributing
 
-### Searching in OpenGrok
+Issues and pull requests welcome! See [CLAUDE.md](CLAUDE.md) for development notes.
 
-#### Option 1: Search Current Project in Browser
+## 📄 License
 
-1. Optionally, select text in the editor that you want to search for
-2. Use one of the following methods:
-   - Press `Ctrl+Shift+G S` (Windows/Linux) or `Cmd+Shift+G S` (Mac)
-   - Right-click and select "Search Current Project in OpenGrok (Browser)" from the context menu
-3. If you had text selected, it will search for that text. Otherwise, you'll be prompted to enter a search term
-4. The search query will be quoted for an exact match (e.g., `"searchTerm"`)
-5. OpenGrok search results for the current project will open in your browser
+MIT License - See LICENSE file for details
 
-#### Option 2: Search Current Project and View Results in VS Code
+---
 
-1. Optionally, select text in the editor that you want to search for
-2. Use one of the following methods:
-   - Press `Ctrl+Shift+G V` (Windows/Linux) or `Cmd+Shift+G V` (Mac)
-   - Right-click and select "Search Current Project in OpenGrok (VS Code)" from the context menu
-3. If you had text selected, it will search for that text. Otherwise, you'll be prompted to enter a search term
-4. Results will appear in the **OpenGrok Search** view in the Explorer sidebar
-5. Click on any result to open the file in VS Code (if available locally) or in your browser
-6. Use the clear button (X) in the view title to clear results
-
-#### Option 3: Search Across All Projects
-
-1. Optionally, select text in the editor that you want to search for
-2. Use one of the following methods:
-   - Press `Ctrl+Shift+G A` (Windows/Linux) or `Cmd+Shift+G A` (Mac)
-   - Right-click and select "Search All Projects in OpenGrok (Browser)" from the context menu
-3. If you had text selected, it will search for that text. Otherwise, you'll be prompted to enter a search term
-4. The search query will be quoted for an exact match (e.g., `"searchTerm"`)
-5. OpenGrok search results across ALL projects will open in your browser
-
-## How It Works
-
-The extension:
-1. Gets the current file path relative to your workspace
-2. Gets the current line number (1-indexed)
-3. Constructs an OpenGrok URL in the format: `{baseUrl}/xref/{relativePath}#{lineNumber}`
-4. Opens the URL in your default browser
-
-## Requirements
-
-- VS Code 1.74.0 or higher
-- A running OpenGrok instance
-- Files must be part of a workspace (not standalone files)
-
-## Known Issues
-
-- Only works with files that are part of a workspace
-- Assumes standard OpenGrok URL structure (`/xref/` for cross-reference view)
-
-## Release Notes
-
-### 1.0.0
-
-Initial release with:
-- Open in OpenGrok with keyboard shortcut (`Ctrl+Shift+G O` / `Cmd+Shift+G O`)
-- Copy OpenGrok URL with keyboard shortcut (`Ctrl+Shift+G C` / `Cmd+Shift+G C`)
-- Search Current Project (Browser) - opens results in browser (`Ctrl+Shift+G S` / `Cmd+Shift+G S`)
-- Search Current Project (VS Code) - displays results in sidebar (`Ctrl+Shift+G V` / `Cmd+Shift+G V`)
-- Search All Projects (Browser) - search across all projects (`Ctrl+Shift+G A` / `Cmd+Shift+G A`)
-- Context menu integration for all commands
-- Configurable OpenGrok base URL
-- Optional integrated Simple Browser support
-- Multi-project workspace support with top-level folder mode
-- Line number navigation
-- Quoted search queries for exact matches
-- Interactive search results TreeView with clickable links
-- REST API support with HTML fallback for compatibility
-- Search term highlighting in results
-- HTTP Basic Authentication support with secure password storage
-
-## Contributing
-
-Feel free to submit issues or pull requests to improve this extension.
-
-## License
-
-MIT
+**Made for developers who live between their editor and their codebase** 💙

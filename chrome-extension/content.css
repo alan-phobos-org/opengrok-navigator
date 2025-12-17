@@ -1,0 +1,342 @@
+/* Button toolbar container */
+.vscode-button-toolbar {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 10000;
+  display: flex;
+  gap: 15px;
+  align-items: center;
+}
+
+/* Base button styles */
+.vscode-open-btn,
+.vscode-sync-btn,
+.vscode-finder-btn {
+  padding: 12px 20px;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  transition: background 0.2s, transform 0.1s;
+  text-align: center;
+  white-space: nowrap;
+}
+
+/* Floating "Open in VS Code" button */
+.vscode-open-btn {
+  background: #007acc;
+  min-width: 160px;
+}
+
+.vscode-open-btn:hover {
+  background: #005a9e;
+}
+
+.vscode-open-btn:active {
+  transform: scale(0.98);
+}
+
+/* Live-sync toggle button */
+.vscode-sync-btn {
+  background: #6c757d;
+  min-width: 160px;
+}
+
+.vscode-sync-btn:hover {
+  background: #5a6268;
+}
+
+/* File finder button */
+.vscode-finder-btn {
+  background: #ff9800;
+  min-width: 130px;
+}
+
+.vscode-finder-btn:hover {
+  background: #f57c00;
+}
+
+.vscode-finder-btn:active,
+.vscode-sync-btn:active {
+  transform: scale(0.98);
+}
+
+.vscode-sync-btn.active {
+  background: #28a745;
+  animation: pulse 2s infinite;
+}
+
+.vscode-sync-btn.active:hover {
+  background: #218838;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  }
+  50% {
+    box-shadow: 0 2px 12px rgba(40, 167, 69, 0.6);
+  }
+}
+
+.vscode-sync-btn:active {
+  transform: scale(0.98);
+}
+
+/* Hover preview popup */
+.vscode-preview {
+  position: absolute;
+  z-index: 10001;
+  background: white;
+  border: 1px solid #007acc;
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  min-width: 280px;
+  max-width: 400px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  animation: fadeIn 0.2s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.vscode-preview-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 12px;
+  background: #007acc;
+  color: white;
+  border-radius: 6px 6px 0 0;
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.vscode-preview-close {
+  background: none;
+  border: none;
+  color: white;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 3px;
+  transition: background 0.2s;
+}
+
+.vscode-preview-close:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.vscode-preview-info {
+  padding: 12px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: #333;
+}
+
+.vscode-preview-project {
+  font-weight: 600;
+  color: #007acc;
+  margin-bottom: 4px;
+}
+
+.vscode-preview-path {
+  color: #666;
+  word-break: break-all;
+  margin-bottom: 4px;
+}
+
+.vscode-preview-line {
+  color: #999;
+  font-size: 11px;
+}
+
+.vscode-preview-open {
+  width: 100%;
+  padding: 10px;
+  background: #007acc;
+  color: white;
+  border: none;
+  border-radius: 0 0 6px 6px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.vscode-preview-open:hover {
+  background: #005a9e;
+}
+
+/* Quick File Finder Modal */
+.vscode-finder-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 100000;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 10vh;
+}
+
+.vscode-finder-container {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  width: 90%;
+  max-width: 700px;
+  max-height: 70vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: slideDown 0.2s ease-out;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.vscode-finder-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background: #007acc;
+  color: white;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.vscode-finder-close {
+  background: none;
+  border: none;
+  color: white;
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+
+.vscode-finder-close:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.vscode-finder-input {
+  width: 100%;
+  padding: 14px 16px;
+  border: none;
+  border-bottom: 1px solid #e0e0e0;
+  font-size: 16px;
+  outline: none;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+.vscode-finder-input:focus {
+  border-bottom-color: #007acc;
+}
+
+.vscode-finder-loading {
+  padding: 20px;
+  text-align: center;
+  color: #666;
+  font-size: 14px;
+}
+
+.vscode-finder-results {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 200px;
+  max-height: 400px;
+}
+
+.vscode-finder-result {
+  padding: 10px 16px;
+  cursor: pointer;
+  border-bottom: 1px solid #f0f0f0;
+  transition: background 0.1s;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 13px;
+}
+
+.vscode-finder-result:hover {
+  background: #f5f5f5;
+}
+
+.vscode-finder-result.selected {
+  background: #e3f2fd;
+  border-left: 3px solid #007acc;
+  padding-left: 13px;
+}
+
+.vscode-finder-filename {
+  color: #333;
+  word-break: break-all;
+}
+
+.vscode-finder-filename mark {
+  background: #ffeb3b;
+  color: #000;
+  font-weight: 600;
+  padding: 1px 2px;
+  border-radius: 2px;
+}
+
+.vscode-finder-empty {
+  padding: 40px 20px;
+  text-align: center;
+  color: #999;
+  font-size: 14px;
+}
+
+.vscode-finder-footer {
+  display: flex;
+  gap: 20px;
+  padding: 10px 16px;
+  background: #f8f8f8;
+  border-top: 1px solid #e0e0e0;
+  font-size: 12px;
+  color: #666;
+  justify-content: center;
+}
+
+.vscode-finder-footer span {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}

@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>OpenGrok to VS Code - Settings</title>
+  <style>
+    body {
+      padding: 20px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      max-width: 600px;
+    }
+    h1 { font-size: 20px; margin-bottom: 20px; }
+    h2 { font-size: 16px; margin-top: 30px; margin-bottom: 10px; }
+    .mapping {
+      display: flex;
+      gap: 10px;
+      margin: 10px 0;
+      align-items: center;
+    }
+    .mapping input {
+      flex: 1;
+      padding: 6px;
+      border: 1px solid #ccc;
+      border-radius: 3px;
+    }
+    .mapping button {
+      padding: 6px 12px;
+      background: #dc3545;
+      color: white;
+      border: none;
+      border-radius: 3px;
+      cursor: pointer;
+    }
+    .mapping button:hover { background: #c82333; }
+    button {
+      padding: 8px 16px;
+      background: #007bff;
+      color: white;
+      border: none;
+      border-radius: 3px;
+      cursor: pointer;
+    }
+    button:hover { background: #0056b3; }
+    .add-btn { background: #28a745; }
+    .add-btn:hover { background: #218838; }
+    #status {
+      margin-left: 10px;
+      color: #28a745;
+      font-weight: bold;
+    }
+    .hint {
+      color: #666;
+      font-size: 12px;
+      margin-top: 5px;
+    }
+    .section {
+      margin-bottom: 20px;
+    }
+  </style>
+</head>
+<body>
+  <h1>OpenGrok to VS Code - Settings</h1>
+
+  <div class="section">
+    <h2>Default Workspace Root (Optional)</h2>
+    <input type="text" id="defaultWorkspaceRoot" placeholder="/Users/yourname/projects" style="width: 100%;" />
+    <div class="hint">
+      If set, projects without explicit mappings will use: {root}/{project}
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>Experimental Features</h2>
+    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+      <input type="checkbox" id="experimentalFileFinder" />
+      <span>Enable Quick File Finder (Experimental)</span>
+    </label>
+    <div class="hint">
+      Adds a "Find File" button and keyboard shortcut (T) for quick file navigation.
+      Note: May not work correctly with all OpenGrok instances.
+    </div>
+  </div>
+
+  <h2>Project Mappings</h2>
+  <div class="hint" style="margin-bottom: 15px;">
+    Map OpenGrok project names to local workspace directories
+  </div>
+  <div id="mappings"></div>
+  <button class="add-btn" id="addMapping">+ Add Mapping</button>
+
+  <br><br>
+  <button id="save">Save Settings</button>
+  <span id="status"></span>
+
+  <script src="options.js"></script>
+</body>
+</html>

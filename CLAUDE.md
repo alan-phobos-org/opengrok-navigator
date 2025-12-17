@@ -2,23 +2,36 @@
 
 ## Project Overview
 
-A VS Code extension that integrates with OpenGrok for code navigation and search. Allows users to:
+A bidirectional integration between OpenGrok and VS Code consisting of two extensions:
+
+### VS Code Extension (`vscode-extension/`)
+Integrates OpenGrok into VS Code:
 - Open current line in OpenGrok with keyboard shortcuts
 - Copy OpenGrok URLs to clipboard
 - Search OpenGrok and display results in VS Code sidebar
 - Navigate to search results in VS Code editor
 
-## Architecture
+### Chrome Extension (`chrome-extension/`)
+Navigate from OpenGrok browser to VS Code:
+- Click line numbers in OpenGrok to open in VS Code (Ctrl+Click)
+- Floating "Open in VS Code" button
+- Hover preview showing project/file/line info
+- Context menu integration (right-click)
+- Keyboard shortcuts (Ctrl+Shift+O, Ctrl+Shift+F)
+- Configuration UI for project mappings
+- Uses `vscode://` URI protocol handler (no HTTP server needed)
+
+## Architecture - VS Code Extension
 
 ### Core Components
 
-1. **Search Results TreeView** ([src/extension.ts:17-99](src/extension.ts#L17-L99))
+1. **Search Results TreeView** ([vscode-extension/src/extension.ts:17-99](vscode-extension/src/extension.ts#L17-L99))
    - `SearchResultLine`: Represents a single search result with line number, URL, context, and optional local file path
    - `SearchResultFile`: Collapsible file group containing multiple line results
    - `SearchResultLineItem`: TreeView item for individual lines
    - `SearchResultsProvider`: TreeView data provider managing the hierarchy
 
-2. **OpenGrok API Integration** ([src/extension.ts:126-184](src/extension.ts#L126-L184))
+2. **OpenGrok API Integration** ([vscode-extension/src/extension.ts:126-184](vscode-extension/src/extension.ts#L126-L184))
    - `searchOpenGrokAPI()`: HTTP client that intelligently fetches search results
    - **Primary method**: Attempts OpenGrok REST API v1 endpoint (`/api/v1/search`)
    - **Fallback**: Uses HTML search endpoint if REST API unavailable
@@ -26,13 +39,13 @@ A VS Code extension that integrates with OpenGrok for code navigation and search
    - Uses quoted search terms for exact matches
    - Supports project filtering
 
-3. **JSON Parsing** ([src/extension.ts:186-271](src/extension.ts#L186-L271))
+3. **JSON Parsing** ([vscode-extension/src/extension.ts:186-271](vscode-extension/src/extension.ts#L186-L271))
    - `parseOpenGrokJSON()`: Parses REST API JSON responses
    - **Interface**: `OpenGrokAPIResponse` with `results` array
    - Each result contains: `path`, `lineno`, `line` (code content)
    - Cleaner and more reliable than HTML parsing
 
-4. **HTML Parsing** ([src/extension.ts:273-432](src/extension.ts#L273-L432))
+4. **HTML Parsing** ([vscode-extension/src/extension.ts:273-432](vscode-extension/src/extension.ts#L273-L432))
    - `parseOpenGrokResults()`: Parses OpenGrok's HTML search results (fallback)
    - **Key Pattern**: OpenGrok embeds code context inside `<a>` tags:
      ```html
@@ -44,7 +57,7 @@ A VS Code extension that integrates with OpenGrok for code navigation and search
    - Regex: `/<a[^>]*>.*?<\/span>\s*(.+?)<\/a>/s` extracts content after line number span
    - Cleans HTML entities (`&lt;`, `&gt;`, `&amp;`, etc.) and removes tags
 
-5. **Commands** ([src/extension.ts:500-742](src/extension.ts#L500-L742))
+5. **Commands** ([vscode-extension/src/extension.ts:500-742](vscode-extension/src/extension.ts#L500-L742))
    - `openInOpenGrok`: Opens current line in OpenGrok (browser or integrated)
    - `copyOpenGrokUrl`: Copies URL to clipboard
    - `searchInOpenGrok`: Searches current project and opens results in browser
@@ -218,18 +231,44 @@ An output channel "OpenGrok Navigator" displays debug info during searches:
 
 ## Files
 
-- [src/extension.ts](src/extension.ts) - Main extension code (338 lines)
-- [package.json](package.json) - Extension manifest with commands, keybindings, views
-- [README.md](README.md) - User documentation
-- [tsconfig.json](tsconfig.json) - TypeScript configuration
+### VS Code Extension
+- [vscode-extension/src/extension.ts](vscode-extension/src/extension.ts) - Main extension code
+- [vscode-extension/package.json](vscode-extension/package.json) - Extension manifest with commands, keybindings, views
+- [vscode-extension/tsconfig.json](vscode-extension/tsconfig.json) - TypeScript configuration
+
+### Chrome Extension
+- [chrome-extension/manifest.json](chrome-extension/manifest.json) - Extension manifest (Manifest V3)
+- [chrome-extension/content.js](chrome-extension/content.js) - Injected into OpenGrok pages, adds UI and hover preview
+- [chrome-extension/background.js](chrome-extension/background.js) - Service worker handling context menus and URI construction
+- [chrome-extension/options.html](chrome-extension/options.html) / [options.js](chrome-extension/options.js) - Configuration UI
+- [chrome-extension/content.css](chrome-extension/content.css) - Styles for floating button and hover preview
+
+### Documentation
+- [README.md](README.md) - Main user documentation with feature overview
+- [chrome-extension/README.md](chrome-extension/README.md) - Chrome extension user guide
+- [chrome-extension/TESTING.md](chrome-extension/TESTING.md) - Testing guide
+- [docs/DESIGN_OPENGROK_TO_VSCODE.md](docs/DESIGN_OPENGROK_TO_VSCODE.md) - Design document for Chrome extension
+- [docs/IMPLEMENTATION_SUMMARY.md](docs/IMPLEMENTATION_SUMMARY.md) - Implementation summary
+- [docs/FEATURE_SUGGESTIONS.md](docs/FEATURE_SUGGESTIONS.md) - Future feature roadmap
+- [docs/CHROME_EXTENSION_FEATURES.md](docs/CHROME_EXTENSION_FEATURES.md) - Chrome extension feature details
+- [docs/TODO.md](docs/TODO.md) - Development TODOs
 
 ## Build & Run
 
+### VS Code Extension
 ```bash
+cd vscode-extension
 npm install          # Install dependencies
 npm run compile      # Compile TypeScript
 npm run watch        # Watch mode for development
 F5                   # Launch Extension Development Host in VS Code
+```
+
+### Chrome Extension
+```bash
+# No build step required - pure JavaScript
+# Load unpacked extension from chrome-extension/ directory
+# See chrome-extension/TESTING.md for details
 ```
 
 ## Testing Notes
@@ -251,7 +290,7 @@ This naming scheme makes it immediately clear to users the scope of the search a
 
 The extension supports HTTP Basic Authentication for secured OpenGrok instances:
 
-**Implementation** ([src/extension.ts:136-191](src/extension.ts#L136-L191)):
+**Implementation** ([vscode-extension/src/extension.ts:136-191](vscode-extension/src/extension.ts#L136-L191)):
 - Password stored securely using VS Code's SecretStorage API (encrypted, not in settings.json)
 - Prompts for password on first use when auth is enabled
 - Password persists across VS Code sessions
