@@ -47,9 +47,9 @@ A VS Code extension that integrates with OpenGrok for code navigation and search
 5. **Commands** ([src/extension.ts:500-742](src/extension.ts#L500-L742))
    - `openInOpenGrok`: Opens current line in OpenGrok (browser or integrated)
    - `copyOpenGrokUrl`: Copies URL to clipboard
-   - `searchInOpenGrok`: Opens search in browser for current project
+   - `searchInOpenGrok`: Searches current project and opens results in browser
    - `searchInView`: Searches current project and displays results in sidebar TreeView
-   - `searchAllProjects`: Searches across all projects and opens results in browser
+   - `searchAllProjects`: Searches across all projects (using `searchall=true`) and opens results in browser
    - `clearSearchResults`: Clears the TreeView
    - `clearPassword`: Clears stored authentication password
    - `openFileInEditor`: Opens local file at specific line (used by TreeView clicks)
@@ -86,11 +86,13 @@ useTopLevelFolder: http://localhost:8080/source/xref/project-a/src/main.ts#10
 
 | Action | Windows/Linux | Mac |
 |--------|--------------|-----|
-| Open in OpenGrok | `Ctrl+Shift+O` | `Cmd+Shift+O` |
-| Copy OpenGrok URL | `Ctrl+Shift+C` | `Cmd+Shift+C` |
-| Search Current Project (Browser) | `Ctrl+Shift+F` | `Cmd+Shift+F` |
-| Search Current Project (VS Code) | `Ctrl+Alt+F` | `Cmd+Alt+F` |
-| Search All Projects (Browser) | `Ctrl+Shift+Alt+F` | `Cmd+Shift+Alt+F` |
+| Open in OpenGrok | `Ctrl+Shift+G O` | `Cmd+Shift+G O` |
+| Copy OpenGrok URL | `Ctrl+Shift+G C` | `Cmd+Shift+G C` |
+| Search Current Project (Browser) | `Ctrl+Shift+G S` | `Cmd+Shift+G S` |
+| Search Current Project (VS Code) | `Ctrl+Shift+G V` | `Cmd+Shift+G V` |
+| Search All Projects (Browser) | `Ctrl+Shift+G A` | `Cmd+Shift+G A` |
+
+**Note**: The keybinding scheme uses `Ctrl+Shift+G` as a prefix (mnemonic: "G" for "Grok") to avoid conflicts with VS Code's core functionality like Find in Files (`Ctrl+Shift+F`), Quick Open (`Ctrl+Shift+O`), and Open External Terminal (`Ctrl+Shift+C`).
 
 ## Key Implementation Details
 
@@ -238,11 +240,12 @@ F5                   # Launch Extension Development Host in VS Code
 
 ## Command Naming
 
-The search commands have clear names indicating where results appear:
-- **"Search in OpenGrok (Browser)"**: Opens search results in your web browser
-- **"Search in OpenGrok (VS Code)"**: Displays search results in VS Code sidebar TreeView
+The search commands have clear names indicating scope and where results appear:
+- **"Search Current Project in OpenGrok (Browser)"**: Searches within current project, opens results in web browser
+- **"Search Current Project in OpenGrok (VS Code)"**: Searches within current project, displays results in VS Code sidebar TreeView
+- **"Search All Projects in OpenGrok (Browser)"**: Searches across all projects, opens results in web browser
 
-This naming scheme makes it immediately clear to users what will happen when they invoke each command.
+This naming scheme makes it immediately clear to users the scope of the search and where results will appear.
 
 ## Authentication
 

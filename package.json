@@ -1,18 +1,28 @@
 {
   "name": "opengrok-navigator",
   "displayName": "OpenGrok Navigator",
-  "description": "Open current line in OpenGrok with keyboard shortcut and context menu",
+  "description": "Navigate to OpenGrok from VS Code with keyboard shortcuts, search across projects, and view results inline",
   "version": "1.0.0",
   "publisher": "your-publisher-name",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-username/opengrok-navigator"
+  },
   "engines": {
     "vscode": "^1.74.0"
   },
   "categories": [
     "Other"
   ],
-  "activationEvents": [
-    "onCommand:opengrok-navigator.openInOpenGrok"
+  "keywords": [
+    "opengrok",
+    "code search",
+    "source code",
+    "navigation",
+    "cross-reference"
   ],
+  "activationEvents": [],
   "main": "./out/extension.js",
   "contributes": {
     "commands": [
@@ -26,15 +36,15 @@
       },
       {
         "command": "opengrok-navigator.searchInOpenGrok",
-        "title": "Search in OpenGrok (Browser)"
+        "title": "Search Current Project in OpenGrok (Browser)"
       },
       {
         "command": "opengrok-navigator.searchInView",
-        "title": "Search in OpenGrok (VS Code)"
+        "title": "Search Current Project in OpenGrok (VS Code)"
       },
       {
         "command": "opengrok-navigator.searchAllProjects",
-        "title": "Search All Projects in OpenGrok"
+        "title": "Search All Projects in OpenGrok (Browser)"
       },
       {
         "command": "opengrok-navigator.clearSearchResults",
@@ -49,32 +59,32 @@
     "keybindings": [
       {
         "command": "opengrok-navigator.openInOpenGrok",
-        "key": "ctrl+shift+o",
-        "mac": "cmd+shift+o",
+        "key": "ctrl+shift+g o",
+        "mac": "cmd+shift+g o",
         "when": "editorTextFocus"
       },
       {
         "command": "opengrok-navigator.copyOpenGrokUrl",
-        "key": "ctrl+shift+c",
-        "mac": "cmd+shift+c",
+        "key": "ctrl+shift+g c",
+        "mac": "cmd+shift+g c",
         "when": "editorTextFocus"
       },
       {
         "command": "opengrok-navigator.searchInOpenGrok",
-        "key": "ctrl+shift+f",
-        "mac": "cmd+shift+f",
+        "key": "ctrl+shift+g s",
+        "mac": "cmd+shift+g s",
         "when": "editorTextFocus"
       },
       {
         "command": "opengrok-navigator.searchInView",
-        "key": "ctrl+alt+f",
-        "mac": "cmd+alt+f",
+        "key": "ctrl+shift+g v",
+        "mac": "cmd+shift+g v",
         "when": "editorTextFocus"
       },
       {
         "command": "opengrok-navigator.searchAllProjects",
-        "key": "ctrl+shift+alt+f",
-        "mac": "cmd+shift+alt+f",
+        "key": "ctrl+shift+g a",
+        "mac": "cmd+shift+g a",
         "when": "editorTextFocus"
       }
     ],
@@ -83,27 +93,27 @@
         {
           "command": "opengrok-navigator.openInOpenGrok",
           "when": "editorTextFocus",
-          "group": "navigation"
+          "group": "navigation@1"
         },
         {
           "command": "opengrok-navigator.copyOpenGrokUrl",
           "when": "editorTextFocus",
-          "group": "navigation"
+          "group": "navigation@2"
         },
         {
           "command": "opengrok-navigator.searchInOpenGrok",
           "when": "editorTextFocus",
-          "group": "navigation"
+          "group": "navigation@3"
         },
         {
           "command": "opengrok-navigator.searchInView",
           "when": "editorTextFocus",
-          "group": "navigation"
+          "group": "navigation@4"
         },
         {
           "command": "opengrok-navigator.searchAllProjects",
           "when": "editorTextFocus",
-          "group": "navigation"
+          "group": "navigation@5"
         }
       ],
       "view/title": [

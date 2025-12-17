@@ -4,11 +4,11 @@ A VS Code extension that allows you to quickly open the current line of code in 
 
 ## Features
 
-- **Open in OpenGrok**: Press `Ctrl+Shift+O` (Windows/Linux) or `Cmd+Shift+O` (Mac) to open the current line in OpenGrok
-- **Copy OpenGrok URL**: Press `Ctrl+Shift+C` (Windows/Linux) or `Cmd+Shift+C` (Mac) to copy the OpenGrok URL to clipboard
-- **Search in OpenGrok (Browser)**: Press `Ctrl+Shift+F` (Windows/Linux) or `Cmd+Shift+F` (Mac) to search current project and open results in your browser
-- **Search in OpenGrok (VS Code)**: Press `Ctrl+Alt+F` (Windows/Linux) or `Cmd+Alt+F` (Mac) to search current project and display results in VS Code sidebar
-- **Search All Projects**: Press `Ctrl+Shift+Alt+F` (Windows/Linux) or `Cmd+Shift+Alt+F` (Mac) to search across all projects and open results in your browser
+- **Open in OpenGrok**: Press `Ctrl+Shift+G O` (Windows/Linux) or `Cmd+Shift+G O` (Mac) to open the current line in OpenGrok
+- **Copy OpenGrok URL**: Press `Ctrl+Shift+G C` (Windows/Linux) or `Cmd+Shift+G C` (Mac) to copy the OpenGrok URL to clipboard
+- **Search Current Project (Browser)**: Press `Ctrl+Shift+G S` (Windows/Linux) or `Cmd+Shift+G S` (Mac) to search current project and open results in your browser
+- **Search Current Project (VS Code)**: Press `Ctrl+Shift+G V` (Windows/Linux) or `Cmd+Shift+G V` (Mac) to search current project and display results in VS Code sidebar
+- **Search All Projects (Browser)**: Press `Ctrl+Shift+G A` (Windows/Linux) or `Cmd+Shift+G A` (Mac) to search across all projects and open results in your browser
 - **Context Menu**: Right-click in the editor and select from available OpenGrok commands
 - **Configurable**: Set your OpenGrok base URL in VS Code settings
 - **Integrated Browser**: Optionally open links in VS Code's built-in Simple Browser
@@ -96,7 +96,7 @@ http://localhost:8080/source/xref/workspace-root/project-a/src/main.ts#10
 1. Open a file in VS Code
 2. Place your cursor on the line you want to view in OpenGrok
 3. Use one of the following methods:
-   - Press `Ctrl+Shift+O` (Windows/Linux) or `Cmd+Shift+O` (Mac)
+   - Press `Ctrl+Shift+G O` (Windows/Linux) or `Cmd+Shift+G O` (Mac)
    - Right-click and select "Open in OpenGrok" from the context menu
 4. Your browser will open to the corresponding line in OpenGrok
 
@@ -105,7 +105,7 @@ http://localhost:8080/source/xref/workspace-root/project-a/src/main.ts#10
 1. Open a file in VS Code
 2. Place your cursor on the line you want to reference
 3. Use one of the following methods:
-   - Press `Ctrl+Shift+C` (Windows/Linux) or `Cmd+Shift+C` (Mac)
+   - Press `Ctrl+Shift+G C` (Windows/Linux) or `Cmd+Shift+G C` (Mac)
    - Right-click and select "Copy OpenGrok URL" from the context menu
 4. The URL will be copied to your clipboard
 
@@ -115,8 +115,8 @@ http://localhost:8080/source/xref/workspace-root/project-a/src/main.ts#10
 
 1. Optionally, select text in the editor that you want to search for
 2. Use one of the following methods:
-   - Press `Ctrl+Shift+F` (Windows/Linux) or `Cmd+Shift+F` (Mac)
-   - Right-click and select "Search in OpenGrok (Browser)" from the context menu
+   - Press `Ctrl+Shift+G S` (Windows/Linux) or `Cmd+Shift+G S` (Mac)
+   - Right-click and select "Search Current Project in OpenGrok (Browser)" from the context menu
 3. If you had text selected, it will search for that text. Otherwise, you'll be prompted to enter a search term
 4. The search query will be quoted for an exact match (e.g., `"searchTerm"`)
 5. OpenGrok search results for the current project will open in your browser
@@ -125,8 +125,8 @@ http://localhost:8080/source/xref/workspace-root/project-a/src/main.ts#10
 
 1. Optionally, select text in the editor that you want to search for
 2. Use one of the following methods:
-   - Press `Ctrl+Alt+F` (Windows/Linux) or `Cmd+Alt+F` (Mac)
-   - Right-click and select "Search in OpenGrok (VS Code)" from the context menu
+   - Press `Ctrl+Shift+G V` (Windows/Linux) or `Cmd+Shift+G V` (Mac)
+   - Right-click and select "Search Current Project in OpenGrok (VS Code)" from the context menu
 3. If you had text selected, it will search for that text. Otherwise, you'll be prompted to enter a search term
 4. Results will appear in the **OpenGrok Search** view in the Explorer sidebar
 5. Click on any result to open the file in VS Code (if available locally) or in your browser
@@ -136,8 +136,8 @@ http://localhost:8080/source/xref/workspace-root/project-a/src/main.ts#10
 
 1. Optionally, select text in the editor that you want to search for
 2. Use one of the following methods:
-   - Press `Ctrl+Shift+Alt+F` (Windows/Linux) or `Cmd+Shift+Alt+F` (Mac)
-   - Right-click and select "Search All Projects in OpenGrok" from the context menu
+   - Press `Ctrl+Shift+G A` (Windows/Linux) or `Cmd+Shift+G A` (Mac)
+   - Right-click and select "Search All Projects in OpenGrok (Browser)" from the context menu
 3. If you had text selected, it will search for that text. Otherwise, you'll be prompted to enter a search term
 4. The search query will be quoted for an exact match (e.g., `"searchTerm"`)
 5. OpenGrok search results across ALL projects will open in your browser
@@ -166,11 +166,11 @@ The extension:
 ### 1.0.0
 
 Initial release with:
-- Open in OpenGrok with keyboard shortcut (`Ctrl+Shift+O` / `Cmd+Shift+O`)
-- Copy OpenGrok URL with keyboard shortcut (`Ctrl+Shift+C` / `Cmd+Shift+C`)
-- Search in OpenGrok (Browser) - opens results in browser (`Ctrl+Shift+F` / `Cmd+Shift+F`)
-- Search in OpenGrok (VS Code) - displays results in sidebar (`Ctrl+Alt+F` / `Cmd+Alt+F`)
-- Search All Projects - search across all projects (`Ctrl+Shift+Alt+F` / `Cmd+Shift+Alt+F`)
+- Open in OpenGrok with keyboard shortcut (`Ctrl+Shift+G O` / `Cmd+Shift+G O`)
+- Copy OpenGrok URL with keyboard shortcut (`Ctrl+Shift+G C` / `Cmd+Shift+G C`)
+- Search Current Project (Browser) - opens results in browser (`Ctrl+Shift+G S` / `Cmd+Shift+G S`)
+- Search Current Project (VS Code) - displays results in sidebar (`Ctrl+Shift+G V` / `Cmd+Shift+G V`)
+- Search All Projects (Browser) - search across all projects (`Ctrl+Shift+G A` / `Cmd+Shift+G A`)
 - Context menu integration for all commands
 - Configurable OpenGrok base URL
 - Optional integrated Simple Browser support
