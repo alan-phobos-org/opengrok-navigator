@@ -607,8 +607,6 @@ function buildOpenGrokUrl(): string | null {
 }
 
 export function activate(context: vscode.ExtensionContext) {
-    console.log('OpenGrok Navigator extension is now active');
-
     // Create output channel for debug logging
     const outputChannel = vscode.window.createOutputChannel('OpenGrok Navigator');
     context.subscriptions.push(outputChannel);
@@ -621,7 +619,7 @@ export function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(treeView);
 
     // Command: Open in OpenGrok
-    let openDisposable = vscode.commands.registerCommand('opengrok-navigator.openInOpenGrok', async () => {
+    const openDisposable = vscode.commands.registerCommand('opengrok-navigator.openInOpenGrok', async () => {
         const openGrokUrl = buildOpenGrokUrl();
         if (!openGrokUrl) {
             return;
@@ -657,7 +655,7 @@ export function activate(context: vscode.ExtensionContext) {
     });
 
     // Command: Copy OpenGrok URL
-    let copyDisposable = vscode.commands.registerCommand('opengrok-navigator.copyOpenGrokUrl', async () => {
+    const copyDisposable = vscode.commands.registerCommand('opengrok-navigator.copyOpenGrokUrl', async () => {
         const openGrokUrl = buildOpenGrokUrl();
         if (!openGrokUrl) {
             return;
@@ -669,7 +667,7 @@ export function activate(context: vscode.ExtensionContext) {
     });
 
     // Command: Search in OpenGrok
-    let searchDisposable = vscode.commands.registerCommand('opengrok-navigator.searchInOpenGrok', async () => {
+    const searchDisposable = vscode.commands.registerCommand('opengrok-navigator.searchInOpenGrok', async () => {
         const editor = vscode.window.activeTextEditor;
         const config = vscode.workspace.getConfiguration('opengrok-navigator');
         const baseUrl = config.get<string>('baseUrl');
@@ -681,7 +679,7 @@ export function activate(context: vscode.ExtensionContext) {
         }
 
         // Determine the project name
-        let projectName: string = '';
+        let projectName = '';
 
         if (editor) {
             const workspaceFolders = vscode.workspace.workspaceFolders;
@@ -759,7 +757,7 @@ export function activate(context: vscode.ExtensionContext) {
     });
 
     // Command: Search in View (using API)
-    let searchInViewDisposable = vscode.commands.registerCommand('opengrok-navigator.searchInView', async () => {
+    const searchInViewDisposable = vscode.commands.registerCommand('opengrok-navigator.searchInView', async () => {
         const editor = vscode.window.activeTextEditor;
         const config = vscode.workspace.getConfiguration('opengrok-navigator');
         const baseUrl = config.get<string>('baseUrl');
@@ -771,7 +769,7 @@ export function activate(context: vscode.ExtensionContext) {
         }
 
         // Determine the project name
-        let projectName: string = '';
+        let projectName = '';
 
         if (editor) {
             const workspaceFolders = vscode.workspace.workspaceFolders;
@@ -842,18 +840,18 @@ export function activate(context: vscode.ExtensionContext) {
     });
 
     // Command: Clear search results
-    let clearResultsDisposable = vscode.commands.registerCommand('opengrok-navigator.clearSearchResults', () => {
+    const clearResultsDisposable = vscode.commands.registerCommand('opengrok-navigator.clearSearchResults', () => {
         searchResultsProvider.clear();
     });
 
     // Command: Clear stored password
-    let clearPasswordDisposable = vscode.commands.registerCommand('opengrok-navigator.clearPassword', async () => {
+    const clearPasswordDisposable = vscode.commands.registerCommand('opengrok-navigator.clearPassword', async () => {
         await context.secrets.delete('opengrok-password');
         vscode.window.showInformationMessage('OpenGrok password cleared from secure storage');
     });
 
     // Command: Search all projects in OpenGrok
-    let searchAllProjectsDisposable = vscode.commands.registerCommand('opengrok-navigator.searchAllProjects', async () => {
+    const searchAllProjectsDisposable = vscode.commands.registerCommand('opengrok-navigator.searchAllProjects', async () => {
         const editor = vscode.window.activeTextEditor;
         const config = vscode.workspace.getConfiguration('opengrok-navigator');
         const baseUrl = config.get<string>('baseUrl');
@@ -914,7 +912,7 @@ export function activate(context: vscode.ExtensionContext) {
     });
 
     // Command: Open file in editor
-    let openFileDisposable = vscode.commands.registerCommand('opengrok-navigator.openFileInEditor', async (filePath: string, lineNumber?: number, searchTerm?: string) => {
+    const openFileDisposable = vscode.commands.registerCommand('opengrok-navigator.openFileInEditor', async (filePath: string, lineNumber?: number, searchTerm?: string) => {
         try {
             const uri = vscode.Uri.file(filePath);
             const document = await vscode.workspace.openTextDocument(uri);
@@ -966,4 +964,6 @@ export function activate(context: vscode.ExtensionContext) {
     );
 }
 
-export function deactivate() {}
+export function deactivate() {
+    // Extension cleanup if needed
+}

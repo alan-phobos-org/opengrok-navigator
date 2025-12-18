@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "OpenGrok to VS Code",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Open OpenGrok files in VS Code with one click",
   "permissions": [
     "activeTab",
@@ -10,7 +10,7 @@
   ],
   "content_scripts": [
     {
-      "matches": ["*://*/source/xref/*"],
+      "matches": ["*://*/source/xref/*", "*://*/source/", "*://*/source"],
       "js": ["content.js"],
       "css": ["content.css"]
     }

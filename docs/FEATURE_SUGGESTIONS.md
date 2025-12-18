@@ -2,28 +2,19 @@
 
 Based on analysis of similar code navigation plugins (GitHub/GitLab browser extensions, Sourcegraph, Octotree, etc.), here are additional features that could enhance the OpenGrok Navigator experience:
 
-## 1. **Quick File Finder** (High Value)
+## ✅ 1. **Quick File Finder** (IMPLEMENTED)
 **Similar to:** GitLab/GitHub's `t` keyboard shortcut, Octotree's file tree search
 
-**Description:** Add a floating search box (triggered by pressing `t` or `/`) that allows fuzzy searching of files in the current project without leaving the OpenGrok page.
+**Status:** ✅ Completed and released in v1.0.0
 
-**Implementation:**
-- Keyboard trigger: Press `t` to open overlay
-- Fuzzy search through file paths in current project
-- Show top 10 matches in real-time dropdown
-- Arrow keys to navigate, Enter to open in VS Code or browser
-- ESC to dismiss
+**Implementation Details:**
+- Press `T` to open file finder overlay on any OpenGrok page
+- Server-side search using OpenGrok REST API (`/api/v1/search?path=*query*`)
+- Real-time search with 300ms debounce
+- Enter opens file in OpenGrok, Shift+Enter opens in VS Code
+- Works with repositories of any size (no pre-loading required)
 
-**Benefits:**
-- Eliminates need to navigate through directory tree
-- Matches muscle memory from GitHub/GitLab
-- Faster than using OpenGrok's native search for known files
-
-**Technical Approach:**
-- Fetch file list from OpenGrok API or parse from directory listings
-- Cache file list per project in `chrome.storage.local`
-- Use Levenshtein distance or simple substring matching for fuzzy search
-- Display as modal overlay with autocomplete dropdown
+See [docs/QUICK_FILE_FINDER_DESIGN.md](QUICK_FILE_FINDER_DESIGN.md) for complete design documentation.
 
 ---
 
@@ -142,11 +133,11 @@ Based on analysis of similar code navigation plugins (GitHub/GitLab browser exte
 
 ## Recommended Implementation Priority
 
-1. **Quick File Finder** - Highest ROI, relatively simple to implement (~2-3 hours)
-2. **Breadcrumb Navigation with History** - Good UX improvement, moderate complexity (~3-4 hours)
-3. **Symbol Navigation Panel** - Very useful but requires more sophisticated parsing (~4-5 hours)
-4. **Code Snippet Clipboard Manager** - Unique feature, good for productivity (~2-3 hours)
-5. **Diff Comparison View** - Complex, lower priority unless doing code reviews (~5-6 hours)
+1. ~~**Quick File Finder**~~ - ✅ **COMPLETED in v1.0.0**
+2. **Breadcrumb Navigation with History** - Good UX improvement, moderate complexity
+3. **Symbol Navigation Panel** - Very useful but requires more sophisticated parsing
+4. **Code Snippet Clipboard Manager** - Unique feature, good for productivity
+5. **Diff Comparison View** - Complex, lower priority unless doing code reviews
 
 ---
 

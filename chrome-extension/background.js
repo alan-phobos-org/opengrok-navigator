@@ -26,22 +26,17 @@ async function openInVSCode(data) {
   const localPath = `${workspaceRoot}/${data.filePath}`;
   const vscodeUri = `vscode://file/${localPath}:${data.lineNumber}:1`;
 
-  console.log('Opening in VS Code:', vscodeUri);
-
   try {
     // Use a hidden iframe or direct navigation to avoid popup
     // We'll send the URI back to content script to handle
     return { success: true, uri: vscodeUri };
   } catch (error) {
-    console.error('Failed to open VS Code URI:', error);
     return { error: error.message };
   }
 }
 
 // Create context menus
 chrome.runtime.onInstalled.addListener(() => {
-  console.log('OpenGrok to VS Code extension installed');
-
   chrome.contextMenus.create({
     id: 'open-line-in-vscode',
     title: 'Open in VS Code',

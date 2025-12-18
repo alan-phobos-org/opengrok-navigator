@@ -21,7 +21,7 @@ Navigate **FROM** OpenGrok **TO** VS Code with one click:
 - **🔄 Live Sync**: Toggle real-time synchronization - VS Code follows your OpenGrok browsing
 - **👁️ Hover Previews**: See file info before opening
 - **⚙️ Smart Mapping**: Configure custom project-to-workspace mappings
-- **🔍 Quick File Finder** _(Experimental)_: Press `T` for fuzzy file search (GitHub-style)
+- **🔍 Quick File Finder**: Press `T` for fuzzy file search (GitHub-style)
 - **🎨 Floating Toolbar**: Unobtrusive buttons that appear only on file pages
 
 ## 🚀 Quick Start

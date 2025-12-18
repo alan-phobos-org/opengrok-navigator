@@ -1,6 +1,24 @@
 # Changelog
 
-## [Unreleased]
+## [1.1.0] - 2025-12-18
+
+### Changed
+- **Code Quality**: Removed console.log statements from production code for cleaner output
+- **VS Code Extension**: Updated publisher and repository information in package.json
+- **Documentation**: Updated FEATURE_SUGGESTIONS.md to reflect Quick File Finder as completed feature
+- **Chrome Extension**: Updated troubleshooting documentation for file finder feature
+
+### Added
+- **.editorconfig**: Added EditorConfig file for consistent code formatting across editors
+- **.eslintrc.json**: Added ESLint configuration for VS Code extension
+- **Documentation**: Improved TODO.md with clear status and reference to feature suggestions
+
+### Fixed
+- Placeholder values in VS Code extension package.json (publisher, repository URL)
+- Console logging in Chrome extension background script and content script
+- Misleading "experimental" reference in Chrome extension troubleshooting section
+
+## [1.0.0] - Unreleased
 
 ### Added
 - **Build System**: Comprehensive Makefile for building both extensions with single command

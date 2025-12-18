@@ -2,12 +2,12 @@
   "name": "opengrok-navigator",
   "displayName": "OpenGrok Navigator",
   "description": "Navigate to OpenGrok from VS Code with keyboard shortcuts, search across projects, and view results inline",
-  "version": "1.0.0",
-  "publisher": "your-publisher-name",
+  "version": "1.1.0",
+  "publisher": "opengrok-navigator",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/your-username/opengrok-navigator"
+    "url": "https://github.com/opengrok/opengrok-navigator"
   },
   "engines": {
     "vscode": "^1.74.0"

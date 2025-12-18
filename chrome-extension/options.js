@@ -5,10 +5,12 @@ let autoSaveTimer = null;
 async function loadSettings() {
   const syncResult = await chrome.storage.sync.get({
     projectMappings: {},
-    defaultWorkspaceRoot: ''
+    defaultWorkspaceRoot: '',
+    darkModeEnabled: false
   });
 
   document.getElementById('defaultWorkspaceRoot').value = syncResult.defaultWorkspaceRoot;
+  document.getElementById('darkModeEnabled').checked = syncResult.darkModeEnabled;
 
   const mappingsDiv = document.getElementById('mappings');
   mappingsDiv.innerHTML = '';
@@ -97,10 +99,12 @@ async function saveSettings() {
   });
 
   const defaultRoot = document.getElementById('defaultWorkspaceRoot').value.trim();
+  const darkModeEnabled = document.getElementById('darkModeEnabled').checked;
 
   await chrome.storage.sync.set({
     projectMappings: mappings,
-    defaultWorkspaceRoot: defaultRoot
+    defaultWorkspaceRoot: defaultRoot,
+    darkModeEnabled: darkModeEnabled
   });
 
   // Settings saved silently - no status message needed
@@ -112,5 +116,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Auto-save listeners
   document.getElementById('defaultWorkspaceRoot').addEventListener('input', () => autoSave());
+  document.getElementById('darkModeEnabled').addEventListener('change', () => autoSave());
   document.getElementById('addMapping').addEventListener('click', () => addMappingRow());
 });

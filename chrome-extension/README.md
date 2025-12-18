@@ -95,7 +95,7 @@ Settings are saved automatically.
 → Only appears on file pages (URLs with `/xref/`), not directories
 
 ### File Finder not loading files
-→ Feature is experimental; may not work on all OpenGrok instances. Try navigating directories first to build cache.
+→ Requires OpenGrok REST API v1.0+. Check your OpenGrok version and ensure the API endpoint is accessible.
 
 ## 🔒 Privacy & Security
 
