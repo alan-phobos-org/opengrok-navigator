@@ -15,15 +15,36 @@ function parseOpenGrokUrl() {
   };
 }
 
+// Parse search result link to extract file path and line number
+function parseSearchResultLink(linkElement) {
+  const href = linkElement.getAttribute('href');
+  if (!href) return null;
+
+  // Match /xref/{project}/{path}#{line}
+  const match = href.match(/\/xref\/([^/]+)\/(.+?)#(\d+)$/);
+  if (!match) return null;
+
+  return {
+    project: match[1],
+    filePath: match[2],
+    lineNumber: match[3]
+  };
+}
+
 // Create hover preview popup
 let hoverTimeout = null;
 let currentPreview = null;
 let isMouseOverPreview = false;
 let isMouseOverAnchor = false;
 
-function createPreview(anchor, lineNumber) {
-  const parsed = parseOpenGrokUrl();
-  if (!parsed) return;
+function createPreview(anchor, lineNumber, project = null, filePath = null) {
+  // If project/filePath not provided, parse from URL
+  if (!project || !filePath) {
+    const parsed = parseOpenGrokUrl();
+    if (!parsed) return;
+    project = parsed.project;
+    filePath = parsed.filePath;
+  }
 
   // Remove existing preview
   if (currentPreview) {
@@ -39,8 +60,8 @@ function createPreview(anchor, lineNumber) {
       <button class="vscode-preview-close">&times;</button>
     </div>
     <div class="vscode-preview-info">
-      <div class="vscode-preview-project">${parsed.project}</div>
-      <div class="vscode-preview-path">${parsed.filePath}</div>
+      <div class="vscode-preview-project">${project}</div>
+      <div class="vscode-preview-path">${filePath}</div>
       <div class="vscode-preview-line">Line ${lineNumber}</div>
     </div>
     <button class="vscode-preview-open">Open</button>
@@ -62,7 +83,7 @@ function createPreview(anchor, lineNumber) {
   });
 
   preview.querySelector('.vscode-preview-open').addEventListener('click', () => {
-    openInVSCode(lineNumber);
+    openInVSCodeWithParams(project, filePath, lineNumber);
     preview.remove();
     currentPreview = null;
     isMouseOverPreview = false;
@@ -94,6 +115,7 @@ function hidePreview() {
 
 // Add UI enhancements
 function enhanceUI() {
+  // Enhance line numbers on file pages (a.l)
   const lineNumbers = document.querySelectorAll('a.l');
 
   lineNumbers.forEach(anchor => {
@@ -119,6 +141,47 @@ function enhanceUI() {
     });
 
     anchor.addEventListener('mouseleave', () => {
+      isMouseOverAnchor = false;
+      clearTimeout(hoverTimeout);
+      hoverTimeout = setTimeout(() => {
+        hidePreview();
+      }, 300);
+    });
+  });
+
+  // Enhance line numbers on search results pages (a.s > span.l)
+  const searchResultLines = document.querySelectorAll('a.s');
+
+  searchResultLines.forEach(anchor => {
+    const lineSpan = anchor.querySelector('span.l');
+    if (!lineSpan) return;
+
+    // Parse the link to extract file info
+    const linkInfo = parseSearchResultLink(anchor);
+    if (!linkInfo) return;
+
+    // Style the line number span to indicate it's clickable
+    lineSpan.style.cursor = 'pointer';
+    lineSpan.title = 'Ctrl+Click to open in VS Code';
+
+    // Click handler on the line number span
+    lineSpan.addEventListener('click', (e) => {
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault();
+        e.stopPropagation(); // Prevent navigation
+        openInVSCodeWithParams(linkInfo.project, linkInfo.filePath, linkInfo.lineNumber);
+      }
+    });
+
+    // Hover preview on the line number span
+    lineSpan.addEventListener('mouseenter', () => {
+      isMouseOverAnchor = true;
+      hoverTimeout = setTimeout(() => {
+        createPreview(lineSpan, linkInfo.lineNumber, linkInfo.project, linkInfo.filePath);
+      }, 500);
+    });
+
+    lineSpan.addEventListener('mouseleave', () => {
       isMouseOverAnchor = false;
       clearTimeout(hoverTimeout);
       hoverTimeout = setTimeout(() => {
@@ -596,21 +659,15 @@ function syncCurrentLocation() {
   }
 }
 
-// Open file in VS Code
-function openInVSCode(lineNumber = null) {
-  const parsed = parseOpenGrokUrl();
-  if (!parsed) {
-    alert('Could not parse OpenGrok URL');
-    return;
-  }
-
-  if (lineNumber) {
-    parsed.lineNumber = lineNumber;
-  }
-
+// Open file in VS Code with explicit parameters
+function openInVSCodeWithParams(project, filePath, lineNumber) {
   chrome.runtime.sendMessage({
     action: 'openInVSCode',
-    data: parsed
+    data: {
+      project: project,
+      filePath: filePath,
+      lineNumber: lineNumber
+    }
   }, (response) => {
     if (response && response.error) {
       alert(`Error: ${response.error}`);
@@ -624,6 +681,21 @@ function openInVSCode(lineNumber = null) {
       setTimeout(() => iframe.remove(), 1000);
     }
   });
+}
+
+// Open file in VS Code
+function openInVSCode(lineNumber = null) {
+  const parsed = parseOpenGrokUrl();
+  if (!parsed) {
+    alert('Could not parse OpenGrok URL');
+    return;
+  }
+
+  if (lineNumber) {
+    parsed.lineNumber = lineNumber;
+  }
+
+  openInVSCodeWithParams(parsed.project, parsed.filePath, parsed.lineNumber);
 }
 
 // Dark mode functionality

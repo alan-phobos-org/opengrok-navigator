@@ -1,3 +1,14 @@
+/* Enhanced line numbers on search results */
+a.s span.l {
+  transition: all 0.15s ease;
+}
+
+a.s span.l:hover {
+  background-color: rgba(0, 122, 204, 0.1);
+  color: #005a9e;
+  font-weight: 500;
+}
+
 /* Button toolbar container */
 .vscode-button-toolbar {
   position: fixed;
@@ -1038,6 +1049,12 @@
 .opengrok-dark-mode ::-moz-selection {
   background-color: #264f78 !important;
   color: #ffffff !important;
+}
+
+/* Enhanced line numbers on search results - dark mode */
+.opengrok-dark-mode a.s span.l:hover {
+  background-color: rgba(79, 195, 247, 0.15);
+  color: #81d4fa;
 }
 
 /* Plugin UI adjustments for dark mode */

@@ -8,7 +8,7 @@
 - **📝 Floating Button**: Clean toolbar appears only on file pages
 - **⚡ Live Sync**: Toggle real-time synchronization - VS Code follows as you navigate
 - **👁️ Hover Preview**: See file info before opening (project, path, line)
-- **⌨️ Ctrl+Click**: Hold Ctrl/Cmd and click any line number
+- **⌨️ Ctrl+Click**: Hold Ctrl/Cmd and click any line number (works on file pages AND search results)
 - **🔍 Quick File Finder**: Press `T` for instant file search (GitHub-style)
 - **Right-Click Menu**: Context menu on line numbers and pages
 
@@ -46,11 +46,12 @@ Settings are saved automatically.
 
 ### Basic Navigation
 
-1. Browse to any OpenGrok file page
+1. Browse to any OpenGrok file page or search results
 2. Choose your method:
-   - Click **📝 Open in VS Code** button
-   - Ctrl+Click a line number
-   - Press `Ctrl+Shift+O`
+   - Click **📝 Open in VS Code** button (file pages only)
+   - Ctrl+Click a line number (file pages AND search results)
+   - Hover over line numbers to preview (file pages AND search results)
+   - Press `Ctrl+Shift+O` (file pages only)
    - Right-click → "Open in VS Code"
 3. VS Code opens instantly at the exact file and line! 🎉
 
@@ -92,7 +93,10 @@ Settings are saved automatically.
 → Verify VS Code is installed and `vscode://` URIs work
 
 ### Extension not visible on OpenGrok
-→ Only appears on file pages (URLs with `/xref/`), not directories
+→ Appears on file pages (URLs with `/xref/`) and search results pages
+
+### Ctrl+Click not working on search results
+→ Make sure you're clicking directly on the line number (not the surrounding link)
 
 ### File Finder not loading files
 → Requires OpenGrok REST API v1.0+. Check your OpenGrok version and ensure the API endpoint is accessible.
