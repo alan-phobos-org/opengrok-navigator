@@ -1,0 +1,118 @@
+================================================================================
+  OpenGrok Offline Installation - Quick Start Guide
+================================================================================
+
+STEP 1: DOWNLOAD DEPENDENCIES (Internet-connected machine)
+-----------------------------------------------------------
+
+  ./download-dependencies.sh
+
+  Output: opengrok-dependencies/ directory (~200MB)
+
+
+STEP 2: TRANSFER TO OFFLINE MACHINE
+------------------------------------
+
+  # Option A: USB drive
+  cp -r opengrok-dependencies /media/usb/
+
+  # Option B: Tar + transfer
+  tar -czf opengrok-deps.tar.gz opengrok-dependencies/
+  scp opengrok-deps.tar.gz user@offline-machine:~
+
+
+STEP 3: PREPARE SOURCE CODE
+----------------------------
+
+  # Single project
+  mkdir my-project
+  # ... copy source files into my-project/ ...
+
+  # Multiple projects
+  mkdir sources
+  mkdir sources/project-a sources/project-b
+  # ... copy source files into each ...
+
+
+STEP 4: INSTALL (Offline machine, as root)
+-------------------------------------------
+
+  sudo ./install-opengrok.sh opengrok-dependencies/ my-project/
+
+  Or with options:
+
+  sudo ./install-opengrok.sh \
+    --install-dir /usr/local \
+    --data-dir /srv/opengrok \
+    --port 9090 \
+    opengrok-dependencies/ \
+    my-project/
+
+
+STEP 5: ACCESS OPENGROK
+------------------------
+
+  http://localhost:8080/source
+
+
+MANAGEMENT COMMANDS
+-------------------
+
+  Start:    sudo systemctl start tomcat
+  Stop:     sudo systemctl stop tomcat
+  Restart:  sudo systemctl restart tomcat
+  Status:   sudo systemctl status tomcat
+  Logs:     sudo journalctl -u tomcat -f
+
+
+RE-INDEX SOURCE CODE
+--------------------
+
+  # After updating source files
+  sudo /opt/java/bin/java \
+    -jar /opt/opengrok/lib/opengrok.jar \
+    -c /usr/local/bin/ctags \
+    -s /var/opengrok/src \
+    -d /var/opengrok/data \
+    -H -P -S -G \
+    -W /var/opengrok/etc/configuration.xml
+
+  sudo systemctl restart tomcat
+
+
+TROUBLESHOOTING
+---------------
+
+  Port conflict?        Use: --port 9090
+  Out of memory?        Use: sudo ... -Xmx4g -jar ...
+  Skip initial index?   Use: --skip-indexing
+  No systemd?           Use: --no-systemd
+
+
+HELP
+----
+
+  ./download-dependencies.sh --help
+  ./install-opengrok.sh --help
+
+
+DOCUMENTATION
+-------------
+
+  scripts/README.md              - Full user guide
+  docs/OPENGROK_OFFLINE_SETUP.md - Manual installation
+  docs/SCRIPTS_DESIGN.md         - Script architecture
+
+
+VERSION INFO
+------------
+
+  OpenGrok:  1.13.9
+  Ctags:     6.1.0
+  Tomcat:    9.0.97
+  OpenJDK:   11.0.25+9
+
+  (Edit script headers to change versions)
+
+
+================================================================================

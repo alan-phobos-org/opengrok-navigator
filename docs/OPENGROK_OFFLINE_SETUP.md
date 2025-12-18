@@ -2,6 +2,54 @@
 
 This guide covers setting up OpenGrok on a Linux VM that may not have internet access. All prerequisites must be downloaded beforehand.
 
+## Quick Start (Automated Scripts)
+
+The fastest way to set up OpenGrok offline is using the automated scripts:
+
+### 1. Download Dependencies (on Internet-Connected Machine)
+
+```bash
+# Download all dependencies
+cd scripts/
+./download-dependencies.sh
+
+# For faster parallel downloads
+./download-dependencies.sh -p
+
+# Non-interactive mode
+./download-dependencies.sh -y -p /path/to/output
+```
+
+### 2. Transfer and Install (on Offline Machine)
+
+```bash
+# Transfer the dependencies directory and scripts to your offline machine
+# Then run the installer
+sudo ./install-opengrok.sh /path/to/dependencies /path/to/source-code
+
+# With options for non-interactive mode and custom memory
+sudo ./install-opengrok.sh -y --indexer-memory 4096 ./opengrok-dependencies ./my-source-code
+
+# Skip systemd and indexing (do later manually)
+sudo ./install-opengrok.sh --no-systemd --skip-indexing ./deps ./src
+```
+
+Available options:
+- `-y, --yes`: Non-interactive mode (auto-confirm all prompts)
+- `-p, --parallel`: Download files in parallel (faster, download script only)
+- `--install-dir DIR`: Base installation directory (default: /opt)
+- `--data-dir DIR`: OpenGrok data directory (default: /var/opengrok)
+- `--port PORT`: Tomcat HTTP port (default: 8080)
+- `--indexer-memory SIZE`: Memory for indexer in MB (default: auto-detect)
+- `--no-systemd`: Skip systemd service installation
+- `--skip-indexing`: Skip initial indexing
+
+---
+
+## Manual Installation (Alternative)
+
+If you prefer manual installation or need more control:
+
 ## Prerequisites to Download (on Internet-Connected Machine)
 
 Download these files and transfer them to your VM:
