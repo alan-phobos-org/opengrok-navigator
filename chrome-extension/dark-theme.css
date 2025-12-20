@@ -1,0 +1,939 @@
+/* ========================================
+   DARK MODE THEME
+   Applied via [data-theme="dark"] attribute
+   ======================================== */
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+}
+
+/* Global dark mode overrides */
+:root[data-theme="dark"] body,
+:root[data-theme="dark"] html {
+  background-color: #1e1e1e !important;
+  color: #d4d4d4 !important;
+}
+
+/* Headers and text */
+:root[data-theme="dark"] h1,
+:root[data-theme="dark"] h2,
+:root[data-theme="dark"] h3,
+:root[data-theme="dark"] h4,
+:root[data-theme="dark"] h5,
+:root[data-theme="dark"] h6 {
+  color: #e0e0e0 !important;
+}
+
+:root[data-theme="dark"] p,
+:root[data-theme="dark"] span,
+:root[data-theme="dark"] div {
+  color: #d4d4d4 !important;
+}
+
+/* Links */
+:root[data-theme="dark"] a {
+  color: #4fc3f7 !important;
+}
+
+:root[data-theme="dark"] a:visited {
+  color: #ba68c8 !important;
+}
+
+:root[data-theme="dark"] a:hover {
+  color: #81d4fa !important;
+}
+
+/* Tables */
+:root[data-theme="dark"] table {
+  background-color: #252526 !important;
+  border-color: #4a4a4a !important;
+}
+
+:root[data-theme="dark"] th {
+  background-color: #2d2d30 !important;
+  color: #ececec !important;
+  border-color: #4a4a4a !important;
+  font-weight: 600;
+}
+
+:root[data-theme="dark"] td {
+  background-color: #252526 !important;
+  color: #d4d4d4 !important;
+  border-color: #4a4a4a !important;
+}
+
+:root[data-theme="dark"] tr:hover td {
+  background-color: #2a2d2e !important;
+}
+
+/* Table metadata and grey text */
+:root[data-theme="dark"] td.q,
+:root[data-theme="dark"] td small,
+:root[data-theme="dark"] td .small {
+  color: #a0a0a0 !important;
+}
+
+/* Code and pre blocks */
+:root[data-theme="dark"] pre,
+:root[data-theme="dark"] code {
+  background-color: #1e1e1e !important;
+  color: #d4d4d4 !important;
+  border-color: #3e3e42 !important;
+}
+
+/* Line numbers */
+:root[data-theme="dark"] a.l,
+:root[data-theme="dark"] a.hl {
+  color: #9d9d9d !important;
+  background-color: #252526 !important;
+  border-right-color: #4a4a4a !important;
+}
+
+:root[data-theme="dark"] a.l:hover,
+:root[data-theme="dark"] a.hl:hover {
+  color: #d0d0d0 !important;
+  background-color: #2a2d2e !important;
+}
+
+/* Highlighted line */
+:root[data-theme="dark"] .target-line,
+:root[data-theme="dark"] .highlight {
+  background-color: #2a2d2e !important;
+  border-left: 3px solid #4fc3f7 !important;
+}
+
+/* Search results and syntax highlighting */
+:root[data-theme="dark"] .s,
+:root[data-theme="dark"] .c {
+  color: #6a9955 !important;
+}
+
+:root[data-theme="dark"] .k,
+:root[data-theme="dark"] .kd,
+:root[data-theme="dark"] .kc {
+  color: #569cd6 !important;
+}
+
+:root[data-theme="dark"] .s,
+:root[data-theme="dark"] .s1,
+:root[data-theme="dark"] .s2 {
+  color: #ce9178 !important;
+}
+
+:root[data-theme="dark"] .n,
+:root[data-theme="dark"] .nx {
+  color: #d4d4d4 !important;
+}
+
+:root[data-theme="dark"] .nf {
+  color: #dcdcaa !important;
+}
+
+:root[data-theme="dark"] .nc {
+  color: #4ec9b0 !important;
+}
+
+:root[data-theme="dark"] .mi,
+:root[data-theme="dark"] .mf {
+  color: #b5cea8 !important;
+}
+
+/* Forms and inputs */
+:root[data-theme="dark"] input[type="text"],
+:root[data-theme="dark"] input[type="search"],
+:root[data-theme="dark"] textarea,
+:root[data-theme="dark"] select {
+  background-color: #3c3c3c !important;
+  color: #e0e0e0 !important;
+  border-color: #555555 !important;
+}
+
+:root[data-theme="dark"] input::placeholder,
+:root[data-theme="dark"] textarea::placeholder {
+  color: #8a8a8a !important;
+}
+
+:root[data-theme="dark"] input:focus,
+:root[data-theme="dark"] textarea:focus,
+:root[data-theme="dark"] select:focus {
+  border-color: #007acc !important;
+  outline-color: #007acc !important;
+  background-color: #424242 !important;
+}
+
+/* Buttons */
+:root[data-theme="dark"] button:not([class*="vscode-"]),
+:root[data-theme="dark"] input[type="submit"],
+:root[data-theme="dark"] input[type="button"],
+:root[data-theme="dark"] input[type="reset"] {
+  background-color: #0e639c !important;
+  color: #ffffff !important;
+  border-color: #007acc !important;
+}
+
+:root[data-theme="dark"] button:not([class*="vscode-"]):hover,
+:root[data-theme="dark"] input[type="submit"]:hover,
+:root[data-theme="dark"] input[type="button"]:hover,
+:root[data-theme="dark"] input[type="reset"]:hover {
+  background-color: #1177bb !important;
+}
+
+/* Navigation and header */
+:root[data-theme="dark"] #header,
+:root[data-theme="dark"] #whole_header,
+:root[data-theme="dark"] .header,
+:root[data-theme="dark"] nav {
+  background-color: #2d2d30 !important;
+  border-bottom-color: #3e3e42 !important;
+}
+
+:root[data-theme="dark"] #header *,
+:root[data-theme="dark"] #whole_header *,
+:root[data-theme="dark"] .header *,
+:root[data-theme="dark"] nav * {
+  color: #d4d4d4 !important;
+}
+
+:root[data-theme="dark"] #header a,
+:root[data-theme="dark"] #whole_header a,
+:root[data-theme="dark"] .header a,
+:root[data-theme="dark"] nav a {
+  color: #4fc3f7 !important;
+}
+
+/* Breadcrumbs */
+:root[data-theme="dark"] #path,
+:root[data-theme="dark"] .path,
+:root[data-theme="dark"] .breadcrumb {
+  background-color: #252526 !important;
+  color: #d4d4d4 !important;
+  border-color: #4a4a4a !important;
+}
+
+:root[data-theme="dark"] #path a,
+:root[data-theme="dark"] .path a,
+:root[data-theme="dark"] .breadcrumb a {
+  color: #4fc3f7 !important;
+}
+
+:root[data-theme="dark"] #path .separator,
+:root[data-theme="dark"] .path .separator,
+:root[data-theme="dark"] .breadcrumb .separator {
+  color: #9d9d9d !important;
+}
+
+/* Directory listings */
+:root[data-theme="dark"] .directory,
+:root[data-theme="dark"] .dir {
+  color: #4fc3f7 !important;
+}
+
+:root[data-theme="dark"] .file {
+  color: #d4d4d4 !important;
+}
+
+/* Panels and divs with backgrounds */
+:root[data-theme="dark"] div[style*="background"],
+:root[data-theme="dark"] .panel,
+:root[data-theme="dark"] .content {
+  background-color: #1e1e1e !important;
+}
+
+/* Main content areas */
+:root[data-theme="dark"] #content,
+:root[data-theme="dark"] #src,
+:root[data-theme="dark"] .src,
+:root[data-theme="dark"] main {
+  background-color: #1e1e1e !important;
+  color: #d4d4d4 !important;
+}
+
+/* Index page specific elements */
+:root[data-theme="dark"] .projectlist,
+:root[data-theme="dark"] .project-list,
+:root[data-theme="dark"] #projects {
+  background-color: #1e1e1e !important;
+}
+
+:root[data-theme="dark"] .projectlist li,
+:root[data-theme="dark"] .project-list li {
+  border-color: #3e3e42 !important;
+}
+
+:root[data-theme="dark"] .projectlist a,
+:root[data-theme="dark"] .project-list a {
+  color: #4fc3f7 !important;
+}
+
+:root[data-theme="dark"] .projectlist a:hover,
+:root[data-theme="dark"] .project-list a:hover {
+  background-color: #2a2d2e !important;
+}
+
+/* Root page (main index) specific styling */
+:root[data-theme="dark"] #container,
+:root[data-theme="dark"] .container,
+:root[data-theme="dark"] body > div {
+  background-color: #1e1e1e !important;
+}
+
+:root[data-theme="dark"] .intro,
+:root[data-theme="dark"] .welcome {
+  color: #d4d4d4 !important;
+  background-color: #252526 !important;
+  border-color: #3e3e42 !important;
+}
+
+:root[data-theme="dark"] fieldset,
+:root[data-theme="dark"] legend {
+  border-color: #3e3e42 !important;
+  color: #e0e0e0 !important;
+}
+
+:root[data-theme="dark"] label {
+  color: #d4d4d4 !important;
+}
+
+/* Root page search form */
+:root[data-theme="dark"] #search,
+:root[data-theme="dark"] .searchbar,
+:root[data-theme="dark"] form[name="sbox"] {
+  background-color: #252526 !important;
+  border-color: #3e3e42 !important;
+}
+
+/* Stats and info boxes on root page */
+:root[data-theme="dark"] .stats,
+:root[data-theme="dark"] .statistics,
+:root[data-theme="dark"] .info-box {
+  background-color: #252526 !important;
+  color: #d4d4d4 !important;
+  border-color: #3e3e42 !important;
+}
+
+:root[data-theme="dark"] dt {
+  color: #e0e0e0 !important;
+  font-weight: 600;
+}
+
+:root[data-theme="dark"] dd {
+  color: #d4d4d4 !important;
+}
+
+/* README and markdown content */
+:root[data-theme="dark"] .markdown-body,
+:root[data-theme="dark"] .readme,
+:root[data-theme="dark"] #readme,
+:root[data-theme="dark"] .note {
+  background-color: #1e1e1e !important;
+  color: #d4d4d4 !important;
+  border-color: #3e3e42 !important;
+}
+
+:root[data-theme="dark"] .markdown-body code,
+:root[data-theme="dark"] .readme code {
+  background-color: #2d2d30 !important;
+  color: #d4d4d4 !important;
+}
+
+:root[data-theme="dark"] .markdown-body pre,
+:root[data-theme="dark"] .readme pre {
+  background-color: #252526 !important;
+  border-color: #3e3e42 !important;
+}
+
+:root[data-theme="dark"] .markdown-body blockquote,
+:root[data-theme="dark"] .readme blockquote {
+  border-left-color: #4fc3f7 !important;
+  color: #b4b4b4 !important;
+}
+
+:root[data-theme="dark"] .markdown-body hr,
+:root[data-theme="dark"] .readme hr {
+  border-color: #3e3e42 !important;
+  background-color: #3e3e42 !important;
+}
+
+/* Search page elements */
+:root[data-theme="dark"] #sbox,
+:root[data-theme="dark"] .searchbox,
+:root[data-theme="dark"] #qtbl {
+  background-color: #252526 !important;
+  border-color: #3e3e42 !important;
+}
+
+/* Search form container and fieldsets */
+:root[data-theme="dark"] form,
+:root[data-theme="dark"] #search form {
+  background-color: #1e1e1e !important;
+}
+
+:root[data-theme="dark"] #search fieldset,
+:root[data-theme="dark"] fieldset.search,
+:root[data-theme="dark"] fieldset#qtbl {
+  background-color: #252526 !important;
+  border-color: #4a4a4a !important;
+}
+
+/* Search input labels - improve contrast */
+:root[data-theme="dark"] label,
+:root[data-theme="dark"] .search label {
+  color: #e0e0e0 !important;
+}
+
+/* Small text and hints - improve readability */
+:root[data-theme="dark"] small,
+:root[data-theme="dark"] .small,
+:root[data-theme="dark"] .help,
+:root[data-theme="dark"] .hint {
+  color: #b4b4b4 !important;
+}
+
+/* Search checkboxes and radio buttons */
+:root[data-theme="dark"] input[type="checkbox"],
+:root[data-theme="dark"] input[type="radio"] {
+  filter: brightness(1.2) contrast(1.1);
+}
+
+/* Search results */
+:root[data-theme="dark"] .search-result,
+:root[data-theme="dark"] .result,
+:root[data-theme="dark"] #results .result,
+:root[data-theme="dark"] #results > div {
+  background-color: #252526 !important;
+  border-color: #3e3e42 !important;
+}
+
+:root[data-theme="dark"] .search-result:hover,
+:root[data-theme="dark"] .result:hover {
+  background-color: #2a2d2e !important;
+}
+
+/* Search result highlighted matches */
+:root[data-theme="dark"] .search-result em,
+:root[data-theme="dark"] .result em,
+:root[data-theme="dark"] em.match,
+:root[data-theme="dark"] .match {
+  background-color: #6b5a1d !important;
+  color: #ffd54f !important;
+  font-style: normal;
+  padding: 1px 2px;
+  border-radius: 2px;
+}
+
+/* Search result metadata - improve grey contrast */
+:root[data-theme="dark"] .search-result .metadata,
+:root[data-theme="dark"] .result-info,
+:root[data-theme="dark"] .result-meta,
+:root[data-theme="dark"] .slnm {
+  color: #a0a0a0 !important;
+}
+
+/* Search result file paths */
+:root[data-theme="dark"] .result .p,
+:root[data-theme="dark"] .result-path {
+  color: #4fc3f7 !important;
+}
+
+/* Search page statistics and count */
+:root[data-theme="dark"] .pagetitle,
+:root[data-theme="dark"] .rshead,
+:root[data-theme="dark"] .search-stats {
+  color: #e0e0e0 !important;
+  background-color: #252526 !important;
+  border-color: #4a4a4a !important;
+}
+
+/* "No results" messages */
+:root[data-theme="dark"] .note,
+:root[data-theme="dark"] .message,
+:root[data-theme="dark"] .empty {
+  color: #c0c0c0 !important;
+  background-color: #2a2d2e !important;
+}
+
+/* History and blame pages */
+:root[data-theme="dark"] .revision,
+:root[data-theme="dark"] .revisions,
+:root[data-theme="dark"] .blame {
+  background-color: #252526 !important;
+  color: #d4d4d4 !important;
+}
+
+:root[data-theme="dark"] .alt,
+:root[data-theme="dark"] tr.alt td {
+  background-color: #2a2d2e !important;
+}
+
+/* Footer */
+:root[data-theme="dark"] #footer,
+:root[data-theme="dark"] footer {
+  background-color: #2d2d30 !important;
+  border-top-color: #4a4a4a !important;
+  color: #9d9d9d !important;
+}
+
+:root[data-theme="dark"] #footer a,
+:root[data-theme="dark"] footer a {
+  color: #4fc3f7 !important;
+}
+
+/* Annotations and tooltips */
+:root[data-theme="dark"] .tooltip,
+:root[data-theme="dark"] .annotation {
+  background-color: #2d2d30 !important;
+  color: #e0e0e0 !important;
+  border-color: #4a4a4a !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+}
+
+/* File type icons - maintain visibility */
+:root[data-theme="dark"] .dir-icon::before,
+:root[data-theme="dark"] .file-icon::before {
+  opacity: 0.8;
+  filter: brightness(1.3);
+}
+
+/* Navigation tabs */
+:root[data-theme="dark"] .tabs,
+:root[data-theme="dark"] ul.tabs,
+:root[data-theme="dark"] .tab {
+  background-color: #252526 !important;
+  border-color: #3e3e42 !important;
+}
+
+:root[data-theme="dark"] .tabs li,
+:root[data-theme="dark"] .tab {
+  border-color: #3e3e42 !important;
+}
+
+:root[data-theme="dark"] .tabs li.active,
+:root[data-theme="dark"] .tab.active,
+:root[data-theme="dark"] .tabs li:hover,
+:root[data-theme="dark"] .tab:hover {
+  background-color: #2d2d30 !important;
+  border-bottom-color: #007acc !important;
+}
+
+:root[data-theme="dark"] .tabs a,
+:root[data-theme="dark"] .tab a {
+  color: #d4d4d4 !important;
+}
+
+:root[data-theme="dark"] .tabs li.active a,
+:root[data-theme="dark"] .tab.active a {
+  color: #4fc3f7 !important;
+}
+
+/* Inline diffs */
+:root[data-theme="dark"] .diff,
+:root[data-theme="dark"] .udiff {
+  background-color: #1e1e1e !important;
+}
+
+:root[data-theme="dark"] .diff .add,
+:root[data-theme="dark"] .udiff .add,
+:root[data-theme="dark"] ins {
+  background-color: #1e3a1e !important;
+  color: #7ec87e !important;
+}
+
+:root[data-theme="dark"] .diff .del,
+:root[data-theme="dark"] .udiff .del,
+:root[data-theme="dark"] del {
+  background-color: #5a1d1d !important;
+  color: #f48771 !important;
+}
+
+:root[data-theme="dark"] .diff .context,
+:root[data-theme="dark"] .udiff .context {
+  background-color: #252526 !important;
+  color: #858585 !important;
+}
+
+/* Error and warning messages */
+:root[data-theme="dark"] .error {
+  background-color: #5a1d1d !important;
+  color: #f48771 !important;
+  border-color: #8b2e2e !important;
+}
+
+:root[data-theme="dark"] .warning {
+  background-color: #5a4a1d !important;
+  color: #dcdcaa !important;
+  border-color: #8b7a2e !important;
+}
+
+:root[data-theme="dark"] .info {
+  background-color: #1d3557 !important;
+  color: #81d4fa !important;
+  border-color: #2e4d6b !important;
+}
+
+/* Scrollbars (WebKit) */
+:root[data-theme="dark"] ::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+:root[data-theme="dark"] ::-webkit-scrollbar-track {
+  background: #1e1e1e;
+}
+
+:root[data-theme="dark"] ::-webkit-scrollbar-thumb {
+  background: #424242;
+  border-radius: 6px;
+}
+
+:root[data-theme="dark"] ::-webkit-scrollbar-thumb:hover {
+  background: #4e4e4e;
+}
+
+/* Selection */
+:root[data-theme="dark"] ::selection {
+  background-color: #264f78 !important;
+  color: #ffffff !important;
+}
+
+:root[data-theme="dark"] ::-moz-selection {
+  background-color: #264f78 !important;
+  color: #ffffff !important;
+}
+
+/* Enhanced line numbers on search results - dark mode */
+:root[data-theme="dark"] a.s span.l:hover {
+  background-color: rgba(79, 195, 247, 0.15);
+  color: #81d4fa;
+}
+
+/* Plugin UI adjustments for dark mode */
+:root[data-theme="dark"] .vscode-button-toolbar {
+  background: rgba(45, 45, 48, 0.95);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+:root[data-theme="dark"] .vscode-preview {
+  background: #2d2d30;
+  border-color: #3e3e42;
+  color: #d4d4d4;
+}
+
+:root[data-theme="dark"] .vscode-preview-info {
+  background: #252526;
+  color: #d4d4d4;
+}
+
+:root[data-theme="dark"] .vscode-preview-path {
+  background: #1e1e1e;
+  border-color: #3e3e42;
+  color: #d4d4d4;
+}
+
+:root[data-theme="dark"] .vscode-preview-project {
+  color: #4fc3f7;
+}
+
+:root[data-theme="dark"] .vscode-preview-line {
+  color: #858585;
+}
+
+:root[data-theme="dark"] .vscode-finder-modal {
+  background: rgba(0, 0, 0, 0.8);
+}
+
+:root[data-theme="dark"] .vscode-finder-container {
+  background: #2d2d30;
+  border-color: #3e3e42;
+}
+
+:root[data-theme="dark"] .vscode-finder-input {
+  background: #3c3c3c;
+  color: #d4d4d4;
+  border-bottom-color: #3e3e42;
+}
+
+:root[data-theme="dark"] .vscode-finder-input:focus {
+  background: #252526;
+  border-bottom-color: #007acc;
+}
+
+:root[data-theme="dark"] .vscode-finder-input::placeholder {
+  color: #6c6c6c;
+}
+
+:root[data-theme="dark"] .vscode-finder-result {
+  border-bottom-color: #3e3e42;
+}
+
+:root[data-theme="dark"] .vscode-finder-result:hover {
+  background: #2a2d2e;
+}
+
+:root[data-theme="dark"] .vscode-finder-result.selected {
+  background: linear-gradient(90deg, #094771 0%, #0d5a8f 100%);
+}
+
+:root[data-theme="dark"] .vscode-finder-filename {
+  color: #d4d4d4;
+}
+
+:root[data-theme="dark"] .vscode-finder-directory {
+  color: #858585;
+}
+
+:root[data-theme="dark"] .vscode-finder-empty,
+:root[data-theme="dark"] .vscode-finder-loading {
+  color: #6c6c6c;
+}
+
+:root[data-theme="dark"] .vscode-finder-footer {
+  background: linear-gradient(180deg, #2d2d30 0%, #252526 100%);
+  border-top-color: #3e3e42;
+  color: #858585;
+}
+
+:root[data-theme="dark"] .vscode-finder-footer span {
+  background: #3c3c3c;
+  border-color: #3e3e42;
+}
+
+/* ========================================
+   ADDITIONAL CONTRAST IMPROVEMENTS
+   ======================================== */
+
+/* Improve all grey text readability */
+:root[data-theme="dark"] .grey,
+:root[data-theme="dark"] .gray,
+:root[data-theme="dark"] .muted,
+:root[data-theme="dark"] .secondary {
+  color: #a0a0a0 !important;
+}
+
+/* Disabled elements - still readable */
+:root[data-theme="dark"] .disabled,
+:root[data-theme="dark"] :disabled,
+:root[data-theme="dark"] [disabled] {
+  color: #808080 !important;
+  opacity: 0.7;
+}
+
+/* Search page specific - query builder table */
+:root[data-theme="dark"] #qtbl td {
+  padding: 8px !important;
+}
+
+:root[data-theme="dark"] #qtbl input[type="text"],
+:root[data-theme="dark"] #qtbl select {
+  min-width: 200px;
+}
+
+/* Project selector and dropdowns - CONSOLIDATED */
+:root[data-theme="dark"] select,
+:root[data-theme="dark"] select * {
+  background-color: #3c3c3c !important;
+  color: #e0e0e0 !important;
+  border-color: #555555 !important;
+}
+
+:root[data-theme="dark"] select option {
+  background-color: #2d2d30 !important;
+  color: #e0e0e0 !important;
+}
+
+/* Dropdown popup menu styling (browser-specific) */
+:root[data-theme="dark"] select:focus option {
+  background-color: #2d2d30 !important;
+  color: #e0e0e0 !important;
+}
+
+:root[data-theme="dark"] select option:hover,
+:root[data-theme="dark"] select option:checked,
+:root[data-theme="dark"] select option:focus {
+  background-color: #094771 !important;
+  background: #094771 !important;
+  color: #ffffff !important;
+}
+
+/* Search page info boxes */
+:root[data-theme="dark"] .info-box,
+:root[data-theme="dark"] .infobox {
+  background-color: #1d3557 !important;
+  border-color: #4a6fa5 !important;
+  color: #b8d4f1 !important;
+}
+
+/* Search result line numbers and context */
+:root[data-theme="dark"] .linenumber,
+:root[data-theme="dark"] .ln {
+  color: #9d9d9d !important;
+  border-right-color: #4a4a4a !important;
+}
+
+/* Code context in search results */
+:root[data-theme="dark"] .con,
+:root[data-theme="dark"] .context-line {
+  color: #b0b0b0 !important;
+}
+
+/* Search operators and syntax hints */
+:root[data-theme="dark"] .operator,
+:root[data-theme="dark"] .syntax,
+:root[data-theme="dark"] code.example {
+  background-color: #2d2d30 !important;
+  color: #dcdcaa !important;
+  border-color: #4a4a4a !important;
+}
+
+/* Pagination */
+:root[data-theme="dark"] .pagination,
+:root[data-theme="dark"] .paging {
+  background-color: #252526 !important;
+  border-color: #4a4a4a !important;
+}
+
+:root[data-theme="dark"] .pagination a,
+:root[data-theme="dark"] .paging a {
+  color: #4fc3f7 !important;
+  border-color: #4a4a4a !important;
+}
+
+:root[data-theme="dark"] .pagination .current,
+:root[data-theme="dark"] .paging .current {
+  background-color: #007acc !important;
+  color: #ffffff !important;
+}
+
+/* Date and time stamps */
+:root[data-theme="dark"] .date,
+:root[data-theme="dark"] .time,
+:root[data-theme="dark"] .timestamp {
+  color: #a0a0a0 !important;
+}
+
+/* File size and metadata */
+:root[data-theme="dark"] .size,
+:root[data-theme="dark"] .filesize {
+  color: #9d9d9d !important;
+}
+
+/* Improve select element visibility */
+:root[data-theme="dark"] select {
+  background-image: linear-gradient(45deg, transparent 50%, #a0a0a0 50%),
+                    linear-gradient(135deg, #a0a0a0 50%, transparent 50%) !important;
+  background-position: calc(100% - 15px) calc(1em),
+                       calc(100% - 10px) calc(1em) !important;
+  background-size: 5px 5px, 5px 5px !important;
+  background-repeat: no-repeat !important;
+  padding-right: 30px !important;
+}
+
+/* Horizontal rules and dividers */
+:root[data-theme="dark"] hr,
+:root[data-theme="dark"] .divider {
+  border-color: #4a4a4a !important;
+  background-color: #4a4a4a !important;
+}
+
+/* Project selector tags/chips (e.g., "× illumos-gate") */
+:root[data-theme="dark"] .proj,
+:root[data-theme="dark"] .project-tag,
+:root[data-theme="dark"] #project,
+:root[data-theme="dark"] .projects,
+:root[data-theme="dark"] .project-selection,
+:root[data-theme="dark"] .selected-projects,
+:root[data-theme="dark"] span.project,
+:root[data-theme="dark"] div.project,
+:root[data-theme="dark"] .slnm a {
+  background-color: #2d2d30 !important;
+  color: #e0e0e0 !important;
+  border-color: #555555 !important;
+}
+
+/* Project selector close button (×) */
+:root[data-theme="dark"] .proj a,
+:root[data-theme="dark"] .project-tag a,
+:root[data-theme="dark"] .selected-projects a,
+:root[data-theme="dark"] span.project a,
+:root[data-theme="dark"] div.project a {
+  color: #e0e0e0 !important;
+}
+
+/* Project dropdown menu container */
+:root[data-theme="dark"] #project-menu,
+:root[data-theme="dark"] .project-menu,
+:root[data-theme="dark"] .project-dropdown,
+:root[data-theme="dark"] #projects-menu,
+:root[data-theme="dark"] .projectlist-dropdown,
+:root[data-theme="dark"] #project-list {
+  background-color: #2d2d30 !important;
+  border-color: #555555 !important;
+}
+
+/* Project dropdown items */
+:root[data-theme="dark"] #project-menu li,
+:root[data-theme="dark"] .project-menu li,
+:root[data-theme="dark"] .project-dropdown li,
+:root[data-theme="dark"] .projectlist-dropdown li,
+:root[data-theme="dark"] #project-list li {
+  background-color: #2d2d30 !important;
+  color: #e0e0e0 !important;
+  border-color: #3e3e42 !important;
+}
+
+/* Project dropdown items hover */
+:root[data-theme="dark"] #project-menu li:hover,
+:root[data-theme="dark"] .project-menu li:hover,
+:root[data-theme="dark"] .project-dropdown li:hover,
+:root[data-theme="dark"] .projectlist-dropdown li:hover,
+:root[data-theme="dark"] #project-list li:hover {
+  background-color: #094771 !important;
+  color: #ffffff !important;
+}
+
+/* Project dropdown checkboxes and labels */
+:root[data-theme="dark"] #project-menu label,
+:root[data-theme="dark"] .project-menu label,
+:root[data-theme="dark"] .project-dropdown label,
+:root[data-theme="dark"] .projectlist-dropdown label,
+:root[data-theme="dark"] #project-list label {
+  color: #e0e0e0 !important;
+}
+
+/* Project selection controls (select all, invert, clear) */
+:root[data-theme="dark"] .project-controls,
+:root[data-theme="dark"] .project-actions,
+:root[data-theme="dark"] #project-controls {
+  background-color: #252526 !important;
+  color: #d4d4d4 !important;
+}
+
+/* Project selection links */
+:root[data-theme="dark"] .project-controls a,
+:root[data-theme="dark"] .project-actions a,
+:root[data-theme="dark"] #project-controls a {
+  color: #4fc3f7 !important;
+}
+
+/* Style any element with inline background styles in header/navigation areas */
+:root[data-theme="dark"] #header [style*="background"],
+:root[data-theme="dark"] #whole_header [style*="background"],
+:root[data-theme="dark"] nav [style*="background"],
+:root[data-theme="dark"] form [style*="background"] {
+  background-color: #252526 !important;
+  color: #d4d4d4 !important;
+}
+
+/* Target spans and divs within project selection areas */
+:root[data-theme="dark"] form span,
+:root[data-theme="dark"] form div:not([class*="vscode-"]) {
+  background-color: transparent !important;
+}
+
+/* Specifically target project breadcrumb/selection spans that might be styled inline */
+:root[data-theme="dark"] #header span[style],
+:root[data-theme="dark"] #whole_header span[style],
+:root[data-theme="dark"] nav span[style] {
+  background-color: #2d2d30 !important;
+  color: #e0e0e0 !important;
+  border-color: #555555 !important;
+}

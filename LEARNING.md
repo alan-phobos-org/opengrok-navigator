@@ -32,6 +32,7 @@
 * It even made me a manual test plan to run for it
 * Single hardest issue was getting it to lay out the buttons incorrectly. I had to be very specific with what the issue was (because I guess it couldn't 'see' it?)
 * I tried funky prompts like 'make the UI look more professional'
+* The dark mode feature really seems to be pushing it to the limit
 
 ## Observations
 
@@ -42,3 +43,8 @@
 * It seems unreasonably good at this
 * Random observation about how it Googles... I notice it always includes a year in the search term
 * The opus model + thinking change was good but it still makes mistakes and it absolutely burns through the limits. I'll try again with just thinking and not opus and vise-versa.
+
+# Other Weird Stuff
+
+* I tried doiing a recipe search and certain websites (bbcgoodfood) blocked Claude from accessing it. But Claude decided it wasn't impressed and did a search to work out how to avoid the issue and found that bbcgoodfoodme (middle east) had the same recipes but no agents control file so it got them from there.
+* The integration with Apple Notes is really yanky - it uses some sort of AppleScript hack which can't handle doing fancy formatting like checkboxes etc so it looks like it's properly integrated but it's very limited. I assume apps will get better at this over time.

@@ -12,6 +12,13 @@ async function loadSettings() {
   document.getElementById('defaultWorkspaceRoot').value = syncResult.defaultWorkspaceRoot;
   document.getElementById('darkModeEnabled').checked = syncResult.darkModeEnabled;
 
+  // Apply dark mode to options page itself
+  if (syncResult.darkModeEnabled) {
+    document.body.classList.add('dark-mode');
+  } else {
+    document.body.classList.remove('dark-mode');
+  }
+
   const mappingsDiv = document.getElementById('mappings');
   mappingsDiv.innerHTML = '';
 
@@ -106,6 +113,13 @@ async function saveSettings() {
     defaultWorkspaceRoot: defaultRoot,
     darkModeEnabled: darkModeEnabled
   });
+
+  // Apply dark mode to options page itself
+  if (darkModeEnabled) {
+    document.body.classList.add('dark-mode');
+  } else {
+    document.body.classList.remove('dark-mode');
+  }
 
   // Settings saved silently - no status message needed
 }

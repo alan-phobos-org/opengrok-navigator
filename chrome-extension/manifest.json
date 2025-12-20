@@ -11,8 +11,14 @@
   "content_scripts": [
     {
       "matches": ["*://*/source/xref/*", "*://*/source/", "*://*/source", "*://*/source/search*"],
+      "js": ["dark-mode-init.js"],
+      "css": ["content.css", "dark-theme.css"],
+      "run_at": "document_start"
+    },
+    {
+      "matches": ["*://*/source/xref/*", "*://*/source/", "*://*/source", "*://*/source/search*"],
       "js": ["content.js"],
-      "css": ["content.css"]
+      "run_at": "document_idle"
     }
   ],
   "background": {

@@ -248,9 +248,6 @@ function enhanceUI() {
   if (toolbar.children.length > 0) {
     document.body.appendChild(toolbar);
   }
-
-  // Load dark mode setting from storage
-  loadDarkModeSetting();
 }
 
 // Quick File Finder
@@ -697,27 +694,6 @@ function openInVSCode(lineNumber = null) {
 
   openInVSCodeWithParams(parsed.project, parsed.filePath, parsed.lineNumber);
 }
-
-// Dark mode functionality
-function loadDarkModeSetting() {
-  // Load saved state from storage
-  chrome.storage.sync.get(['darkModeEnabled'], (result) => {
-    if (result.darkModeEnabled) {
-      document.documentElement.classList.add('opengrok-dark-mode');
-    }
-  });
-}
-
-// Listen for storage changes from options page
-chrome.storage.onChanged.addListener((changes, namespace) => {
-  if (namespace === 'sync' && changes.darkModeEnabled) {
-    if (changes.darkModeEnabled.newValue) {
-      document.documentElement.classList.add('opengrok-dark-mode');
-    } else {
-      document.documentElement.classList.remove('opengrok-dark-mode');
-    }
-  }
-});
 
 // Handle messages from background
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {

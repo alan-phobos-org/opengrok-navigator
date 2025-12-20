@@ -51,6 +51,7 @@ Bidirectional VS Code ↔ OpenGrok integration via two extensions.
 **VS Code**: `cd vscode-extension && npm install && npm run compile`
 **Chrome**: No build needed - load unpacked from `chrome-extension/`
 
-## Claude Behaviour
+## Hints
 
 * Claude is extremely concise when reporting progress and summarising changes (don't include line numbers or precise files)
+* All design docs should go into the `docs` folder
