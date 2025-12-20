@@ -134,8 +134,14 @@ check_disk_space() {
     local path="$2"
 
     # Get available space in MB
+    # Check parent directory if path doesn't exist yet
+    local check_path="$path"
+    if [[ ! -e "$path" ]]; then
+        check_path="$(dirname "$path")"
+    fi
+
     local available_mb
-    available_mb=$(df -m "$path" | awk 'NR==2 {print $4}')
+    available_mb=$(df -m "$check_path" | awk 'NR==2 {print $4}')
 
     if [[ $available_mb -lt $required_mb ]]; then
         log_error "Insufficient disk space on $path"
@@ -198,20 +204,25 @@ check_dependencies_dir() {
         return 1
     fi
 
-    # Check for required files
-    local required_files=(
+    # Check for required files (support both uctags and ctags naming)
+    local required_patterns=(
         "opengrok-*.tar.gz"
-        "ctags-*.tar.gz"
         "apache-tomcat-*.tar.gz"
         "OpenJDK*.tar.gz"
     )
 
-    for pattern in "${required_files[@]}"; do
+    for pattern in "${required_patterns[@]}"; do
         if ! ls "$dir"/$pattern 1> /dev/null 2>&1; then
             log_error "Missing required file: $pattern in $dir"
             return 1
         fi
     done
+
+    # Check for ctags (support both uctags and ctags naming)
+    if ! ls "$dir"/uctags-*.tar.gz 1> /dev/null 2>&1 && ! ls "$dir"/ctags-*.tar.gz 1> /dev/null 2>&1; then
+        log_error "Missing required file: uctags-*.tar.gz or ctags-*.tar.gz in $dir"
+        return 1
+    fi
 
     return 0
 }
@@ -305,6 +316,11 @@ install_java() {
         log_warn "Java already installed: $java_version"
         if ! prompt_yes_no "Overwrite with bundled version?"; then
             log_info "Keeping existing Java installation"
+            # Still set JAVA_HOME for current session
+            if [[ -d "${INSTALL_BASE}/java" ]]; then
+                export JAVA_HOME="${INSTALL_BASE}/java"
+                export PATH="$JAVA_HOME/bin:$PATH"
+            fi
             return 0
         fi
         rm -rf "${INSTALL_BASE}/java"
@@ -340,10 +356,10 @@ EOF
 install_ctags() {
     local deps_dir="$1"
     local ctags_tarball
-    ctags_tarball=$(ls "$deps_dir"/ctags-*.tar.gz | head -1)
+    ctags_tarball=$(ls "$deps_dir"/uctags-*.tar.gz 2>/dev/null || ls "$deps_dir"/ctags-*.tar.gz 2>/dev/null | head -1)
 
     if [[ -z "$ctags_tarball" ]]; then
-        log_error "Ctags tarball not found in $deps_dir"
+        log_error "Ctags tarball not found in $deps_dir (looking for uctags-*.tar.gz or ctags-*.tar.gz)"
         return 1
     fi
 
@@ -457,8 +473,11 @@ install_opengrok() {
     mkdir -p "${DATA_BASE}/data"
     mkdir -p "${DATA_BASE}/etc"
 
-    # Set permissions
-    chown -R "$USER:$USER" "$DATA_BASE"
+    # Set permissions for tomcat user (create user first if needed)
+    if ! id tomcat &> /dev/null; then
+        useradd -r -m -U -d "${INSTALL_BASE}/tomcat" -s /bin/false tomcat || true
+    fi
+    chown -R tomcat:tomcat "$DATA_BASE"
 
     log_success "OpenGrok installed successfully"
     return 0
@@ -568,16 +587,14 @@ run_indexer() {
     log_info "Using ${memory_mb}MB memory for indexer"
 
     # Run indexer with memory settings
-    "${JAVA_HOME}/bin/java" \
+    if "${JAVA_HOME}/bin/java" \
         -Xmx${memory_mb}m \
         -jar "${INSTALL_BASE}/opengrok/lib/opengrok.jar" \
         -c /usr/local/bin/ctags \
         -s "${DATA_BASE}/src" \
         -d "${DATA_BASE}/data" \
         -H -P -S -G \
-        -W "${DATA_BASE}/etc/configuration.xml"
-
-    if [[ $? -eq 0 ]]; then
+        -W "${DATA_BASE}/etc/configuration.xml"; then
         log_success "Indexing completed successfully"
         return 0
     else
@@ -596,6 +613,7 @@ After=network.target
 
 [Service]
 Type=forking
+PIDFile=${INSTALL_BASE}/tomcat/temp/tomcat.pid
 
 Environment="JAVA_HOME=${INSTALL_BASE}/java"
 Environment="CATALINA_PID=${INSTALL_BASE}/tomcat/temp/tomcat.pid"
@@ -609,7 +627,7 @@ User=tomcat
 Group=tomcat
 UMask=0007
 RestartSec=10
-Restart=always
+Restart=on-failure
 
 [Install]
 WantedBy=multi-user.target

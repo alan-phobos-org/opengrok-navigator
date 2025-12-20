@@ -43,8 +43,19 @@
 * It seems unreasonably good at this
 * Random observation about how it Googles... I notice it always includes a year in the search term
 * The opus model + thinking change was good but it still makes mistakes and it absolutely burns through the limits. I'll try again with just thinking and not opus and vise-versa.
+* It taught me about Multipass which looks really cool
+* Testing setup scripts: It took a comprehensive design doc and implemented both automated test script and manual test management script with full state management, caching, and multi-instance support. Compacted 1020 lines to 250 lines while keeping all essential info
+
+# Testing
+
+* It's great at this if you tell it to go off and do stuff.
+* Got it to write a script which sets up a linux VM running opengrok and it failed for a while but about 10 mins of debugging (by itself) later it worked perfectly.
 
 # Other Weird Stuff
 
 * I tried doiing a recipe search and certain websites (bbcgoodfood) blocked Claude from accessing it. But Claude decided it wasn't impressed and did a search to work out how to avoid the issue and found that bbcgoodfoodme (middle east) had the same recipes but no agents control file so it got them from there.
 * The integration with Apple Notes is really yanky - it uses some sort of AppleScript hack which can't handle doing fancy formatting like checkboxes etc so it looks like it's properly integrated but it's very limited. I assume apps will get better at this over time.
+
+# Usage Notes
+
+* I got a status bar usage tracker as it got annoying not knowing how my usage is going (weird hackery involving session key cookie copying but it works!)

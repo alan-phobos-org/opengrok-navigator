@@ -20,25 +20,52 @@ readonly NC='\033[0m' # No Color
 
 # Version configuration - update these to change versions
 readonly OPENGROK_VERSION="1.13.9"
-readonly CTAGS_VERSION="6.1.0"
-readonly TOMCAT_VERSION="9.0.97"
+readonly CTAGS_VERSION="2025.11.27"
+readonly CTAGS_COMMIT="e23bae9c83ac579c6db6fe8fea1ca48cde8b7f75"
+readonly TOMCAT_VERSION="10.1.34"
 readonly JDK_VERSION="11.0.25+9"
 
 # Script options
 ASSUME_YES=false
 PARALLEL=false
 
+# Detect architecture for VM (multipass uses host arch on Apple Silicon)
+detect_target_arch() {
+    local arch
+    arch=$(uname -m)
+
+    case "$arch" in
+        aarch64|arm64)
+            echo "aarch64"
+            ;;
+        x86_64|amd64)
+            echo "x64"
+            ;;
+        *)
+            echo "x64"  # Default to x64
+            ;;
+    esac
+}
+
+readonly TARGET_ARCH=$(detect_target_arch)
+
 # Base URLs
 readonly OPENGROK_BASE_URL="https://github.com/oracle/opengrok/releases/download"
-readonly CTAGS_BASE_URL="https://github.com/universal-ctags/ctags/releases/download"
-readonly TOMCAT_BASE_URL="https://archive.apache.org/dist/tomcat/tomcat-9/v${TOMCAT_VERSION}/bin"
+readonly CTAGS_BASE_URL="https://github.com/universal-ctags/ctags-nightly-build/releases/download"
+readonly TOMCAT_BASE_URL="https://archive.apache.org/dist/tomcat/tomcat-10/v${TOMCAT_VERSION}/bin"
 readonly ADOPTIUM_BASE_URL="https://github.com/adoptium/temurin11-binaries/releases/download"
+
+# Map architecture for ctags filename
+CTAGS_ARCH="x86_64"
+if [[ "$TARGET_ARCH" == "aarch64" ]]; then
+    CTAGS_ARCH="aarch64"
+fi
 
 # Derived URLs
 readonly OPENGROK_URL="${OPENGROK_BASE_URL}/${OPENGROK_VERSION}/opengrok-${OPENGROK_VERSION}.tar.gz"
-readonly CTAGS_URL="${CTAGS_BASE_URL}/v${CTAGS_VERSION}/ctags-${CTAGS_VERSION}-linux-x86_64.tar.gz"
+readonly CTAGS_URL="${CTAGS_BASE_URL}/${CTAGS_VERSION}%2B${CTAGS_COMMIT}/uctags-${CTAGS_VERSION}-linux-${CTAGS_ARCH}.release.tar.gz"
 readonly TOMCAT_URL="${TOMCAT_BASE_URL}/apache-tomcat-${TOMCAT_VERSION}.tar.gz"
-readonly JDK_URL="${ADOPTIUM_BASE_URL}/jdk-${JDK_VERSION}/OpenJDK11U-jre_x64_linux_hotspot_${JDK_VERSION/+/_}.tar.gz"
+readonly JDK_URL="${ADOPTIUM_BASE_URL}/jdk-${JDK_VERSION}/OpenJDK11U-jre_${TARGET_ARCH}_linux_hotspot_${JDK_VERSION/+/_}.tar.gz"
 
 #==============================================================================
 # Functions
@@ -89,10 +116,13 @@ check_disk_space() {
 download_file() {
     local url="$1"
     local output="$2"
+    local silent="${3:-false}"  # Optional third parameter for silent mode
     local filename
     filename=$(basename "$output")
 
-    log_info "Downloading ${filename}..."
+    if [[ "$silent" != "true" ]]; then
+        log_info "Downloading ${filename}..."
+    fi
 
     if [[ -f "$output" ]]; then
         log_warn "File already exists: ${filename}"
@@ -110,13 +140,26 @@ download_file() {
     fi
 
     local download_status=0
-    if command -v wget &> /dev/null; then
-        wget --no-verbose --show-progress -O "$output" "$url" || download_status=$?
-    elif command -v curl &> /dev/null; then
-        curl -L --progress-bar -o "$output" "$url" || download_status=$?
+    if [[ "$silent" == "true" ]]; then
+        # Silent mode for parallel downloads - no progress bars
+        if command -v wget &> /dev/null; then
+            wget --quiet -O "$output" "$url" || download_status=$?
+        elif command -v curl &> /dev/null; then
+            curl -L --silent -o "$output" "$url" || download_status=$?
+        else
+            log_error "Neither wget nor curl found. Please install one of them."
+            return 1
+        fi
     else
-        log_error "Neither wget nor curl found. Please install one of them."
-        return 1
+        # Interactive mode with progress bars
+        if command -v wget &> /dev/null; then
+            wget --no-verbose --show-progress -O "$output" "$url" || download_status=$?
+        elif command -v curl &> /dev/null; then
+            curl -L --progress-bar -o "$output" "$url" || download_status=$?
+        else
+            log_error "Neither wget nor curl found. Please install one of them."
+            return 1
+        fi
     fi
 
     if [[ $download_status -eq 0 ]] && [[ -f "$output" ]]; then
@@ -135,9 +178,9 @@ download_file_bg() {
     local log_file="$3"
 
     {
-        download_file "$url" "$output" 2>&1
+        download_file "$url" "$output" "true" 2>&1  # Pass "true" for silent mode
         echo $? > "${output}.status"
-    } | tee "$log_file"
+    } > "$log_file" 2>&1
 }
 
 verify_file() {
@@ -150,8 +193,8 @@ verify_file() {
         return 1
     fi
 
-    # Check if it's a valid gzip file
-    if ! gunzip -t "$filepath" 2>/dev/null; then
+    # Check if it's a valid tar.gz file by listing contents
+    if ! tar -tzf "$filepath" >/dev/null 2>&1; then
         log_error "File appears corrupted: ${filename}"
         return 1
     fi
@@ -176,7 +219,7 @@ Components:
    URL: ${OPENGROK_URL}
 
 2. Universal Ctags ${CTAGS_VERSION}
-   File: ctags-${CTAGS_VERSION}-linux-x86_64.tar.gz
+   File: uctags-${CTAGS_VERSION}-linux-${CTAGS_ARCH}.release.tar.gz
    URL: ${CTAGS_URL}
 
 3. Apache Tomcat ${TOMCAT_VERSION}
@@ -184,7 +227,7 @@ Components:
    URL: ${TOMCAT_URL}
 
 4. OpenJDK ${JDK_VERSION}
-   File: OpenJDK11U-jre_x64_linux_hotspot_${JDK_VERSION/+/_}.tar.gz
+   File: OpenJDK11U-jre_${TARGET_ARCH}_linux_hotspot_${JDK_VERSION/+/_}.tar.gz
    URL: ${JDK_URL}
 
 Files:
@@ -196,11 +239,12 @@ EOF
         cd "$output_dir" || exit 1
         for file in *.tar.gz; do
             if [[ -f "$file" ]]; then
-                local size
                 size=$(du -h "$file" | cut -f1)
-                local sha256
                 if command -v sha256sum &> /dev/null; then
                     sha256=$(sha256sum "$file" | cut -d' ' -f1)
+                    echo "${file} (${size}) - SHA256: ${sha256}" >> MANIFEST.txt
+                elif command -v shasum &> /dev/null; then
+                    sha256=$(shasum -a 256 "$file" | cut -d' ' -f1)
                     echo "${file} (${size}) - SHA256: ${sha256}" >> MANIFEST.txt
                 else
                     echo "${file} (${size})" >> MANIFEST.txt
@@ -225,7 +269,7 @@ This package contains all required dependencies for offline OpenGrok installatio
 Contents:
 ---------
 1. opengrok-*.tar.gz        - OpenGrok application
-2. ctags-*.tar.gz           - Universal Ctags for code indexing
+2. uctags-*.tar.gz          - Universal Ctags for code indexing
 3. apache-tomcat-*.tar.gz   - Tomcat web server
 4. OpenJDK11U-*.tar.gz      - Java Runtime Environment
 
@@ -324,7 +368,8 @@ EOF
     check_command "tar" || has_errors=1
     check_command "gunzip" || has_errors=1
 
-    if ! check_command "wget" && ! check_command "curl"; then
+    # Check for wget or curl (need at least one)
+    if ! command -v wget &> /dev/null && ! command -v curl &> /dev/null; then
         log_error "Need either wget or curl to download files"
         has_errors=1
     fi
@@ -332,8 +377,9 @@ EOF
     if [[ $has_errors -eq 1 ]]; then
         log_error "Prerequisites check failed. Please install missing tools."
         exit 1
+    else
+        log_success "Prerequisites OK"
     fi
-    log_success "Prerequisites OK"
     echo
 
     # Create output directory
@@ -361,9 +407,9 @@ EOF
         local pids=()
         local files=(
             "${output_dir}/opengrok-${OPENGROK_VERSION}.tar.gz"
-            "${output_dir}/ctags-${CTAGS_VERSION}-linux-x86_64.tar.gz"
+            "${output_dir}/uctags-${CTAGS_VERSION}-linux-${CTAGS_ARCH}.release.tar.gz"
             "${output_dir}/apache-tomcat-${TOMCAT_VERSION}.tar.gz"
-            "${output_dir}/OpenJDK11U-jre_x64_linux_hotspot_${JDK_VERSION/+/_}.tar.gz"
+            "${output_dir}/OpenJDK11U-jre_${TARGET_ARCH}_linux_hotspot_${JDK_VERSION/+/_}.tar.gz"
         )
         local urls=(
             "$OPENGROK_URL"
@@ -374,15 +420,19 @@ EOF
 
         # Start all downloads in background
         for i in "${!urls[@]}"; do
+            local filename=$(basename "${files[$i]}")
+            log_info "Starting download: ${filename}"
             download_file_bg "${urls[$i]}" "${files[$i]}" "${files[$i]}.log" &
             pids+=($!)
         done
 
         # Wait for all downloads to complete
+        echo
         log_info "Waiting for ${#pids[@]} parallel downloads to complete..."
         for pid in "${pids[@]}"; do
             wait "$pid" || true
         done
+        echo
 
         # Check status of each download
         for file in "${files[@]}"; do
@@ -403,13 +453,13 @@ EOF
             "${output_dir}/opengrok-${OPENGROK_VERSION}.tar.gz" || failed=1
 
         download_file "$CTAGS_URL" \
-            "${output_dir}/ctags-${CTAGS_VERSION}-linux-x86_64.tar.gz" || failed=1
+            "${output_dir}/uctags-${CTAGS_VERSION}-linux-${CTAGS_ARCH}.release.tar.gz" || failed=1
 
         download_file "$TOMCAT_URL" \
             "${output_dir}/apache-tomcat-${TOMCAT_VERSION}.tar.gz" || failed=1
 
         download_file "$JDK_URL" \
-            "${output_dir}/OpenJDK11U-jre_x64_linux_hotspot_${JDK_VERSION/+/_}.tar.gz" || failed=1
+            "${output_dir}/OpenJDK11U-jre_${TARGET_ARCH}_linux_hotspot_${JDK_VERSION/+/_}.tar.gz" || failed=1
     fi
 
     if [[ $failed -eq 1 ]]; then
@@ -421,9 +471,9 @@ EOF
     log_info "Verifying downloaded files..."
 
     verify_file "${output_dir}/opengrok-${OPENGROK_VERSION}.tar.gz" || failed=1
-    verify_file "${output_dir}/ctags-${CTAGS_VERSION}-linux-x86_64.tar.gz" || failed=1
+    verify_file "${output_dir}/uctags-${CTAGS_VERSION}-linux-${CTAGS_ARCH}.release.tar.gz" || failed=1
     verify_file "${output_dir}/apache-tomcat-${TOMCAT_VERSION}.tar.gz" || failed=1
-    verify_file "${output_dir}/OpenJDK11U-jre_x64_linux_hotspot_${JDK_VERSION/+/_}.tar.gz" || failed=1
+    verify_file "${output_dir}/OpenJDK11U-jre_${TARGET_ARCH}_linux_hotspot_${JDK_VERSION/+/_}.tar.gz" || failed=1
 
     if [[ $failed -eq 1 ]]; then
         log_error "File verification failed. Please re-download."
