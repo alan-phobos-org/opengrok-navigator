@@ -86,6 +86,184 @@ log_error() {
     echo -e "${RED}[ERROR]${NC} $*" >&2
 }
 
+# Check if a port is in use
+# Returns 0 if port is in use, 1 if free
+check_port_in_use() {
+    local port="$1"
+
+    # Try multiple methods to check port availability
+    if command -v lsof &>/dev/null; then
+        lsof -i ":${port}" -sTCP:LISTEN &>/dev/null && return 0
+    fi
+    if command -v ss &>/dev/null; then
+        ss -tlnp 2>/dev/null | grep -q ":${port} " && return 0
+    fi
+    if command -v netstat &>/dev/null; then
+        netstat -tlnp 2>/dev/null | grep -q ":${port} " && return 0
+    fi
+    # Fallback: try to connect
+    if command -v nc &>/dev/null; then
+        nc -z localhost "$port" 2>/dev/null && return 0
+    fi
+
+    return 1
+}
+
+# Kill any process using the specified port
+# Returns 0 on success, 1 on failure
+kill_port_process() {
+    local port="$1"
+    local pids=""
+
+    if command -v lsof &>/dev/null; then
+        pids=$(lsof -t -i ":${port}" -sTCP:LISTEN 2>/dev/null || true)
+    elif command -v ss &>/dev/null; then
+        pids=$(ss -tlnp 2>/dev/null | grep ":${port} " | sed -n 's/.*pid=\([0-9]*\).*/\1/p' || true)
+    fi
+
+    if [[ -n "$pids" ]]; then
+        log_info "Killing processes on port ${port}: $pids"
+        echo "$pids" | xargs -r kill -TERM 2>/dev/null || true
+        sleep 2
+        # Force kill if still running
+        echo "$pids" | xargs -r kill -KILL 2>/dev/null || true
+        return 0
+    fi
+    return 1
+}
+
+# Wait for Tomcat to be ready (HTTP responding)
+# Returns 0 when ready, 1 on timeout
+wait_for_tomcat() {
+    local timeout="${1:-60}"
+    local url="http://localhost:${TOMCAT_PORT}/"
+    local elapsed=0
+
+    # Check if we have a way to make HTTP requests
+    if ! command -v curl &>/dev/null && ! command -v wget &>/dev/null; then
+        log_warn "Neither curl nor wget available - falling back to port check"
+        # Fall back to just checking if port is listening
+        while [[ $elapsed -lt $timeout ]]; do
+            if check_port_in_use "$TOMCAT_PORT"; then
+                log_success "Tomcat port is listening (${elapsed}s) - assuming ready"
+                return 0
+            fi
+            sleep 2
+            elapsed=$((elapsed + 2))
+        done
+        log_warn "Tomcat port not listening after ${timeout}s"
+        return 1
+    fi
+
+    log_info "Waiting for Tomcat to be ready (timeout: ${timeout}s)..."
+
+    while [[ $elapsed -lt $timeout ]]; do
+        local http_code=""
+        # Use curl if available, otherwise wget
+        if command -v curl &>/dev/null; then
+            http_code=$(curl -s -o /dev/null -w '%{http_code}' --connect-timeout 2 "$url" 2>/dev/null || echo "000")
+        else
+            # wget returns 0 on success, 8 on server error (which is still "up")
+            if wget -q --spider --timeout=2 "$url" 2>/dev/null; then
+                http_code="200"
+            else
+                http_code="000"
+            fi
+        fi
+
+        if [[ "$http_code" =~ ^[234][0-9]{2}$ ]]; then
+            log_success "Tomcat is ready (${elapsed}s)"
+            return 0
+        fi
+
+        sleep 2
+        elapsed=$((elapsed + 2))
+        if [[ $((elapsed % 10)) -eq 0 ]]; then
+            log_info "Still waiting for Tomcat... (${elapsed}s elapsed, last status: ${http_code})"
+        fi
+    done
+
+    log_warn "Tomcat not responding after ${timeout}s"
+    return 1
+}
+
+# Wait for Tomcat to fully stop
+# Returns 0 when stopped, 1 on timeout
+wait_for_tomcat_stop() {
+    local timeout="${1:-30}"
+    local elapsed=0
+
+    log_info "Waiting for Tomcat to stop (timeout: ${timeout}s)..."
+
+    while [[ $elapsed -lt $timeout ]]; do
+        if ! check_port_in_use "$TOMCAT_PORT"; then
+            log_success "Tomcat stopped (${elapsed}s)"
+            return 0
+        fi
+        sleep 2
+        elapsed=$((elapsed + 2))
+    done
+
+    log_warn "Tomcat still running after ${timeout}s"
+    return 1
+}
+
+# Show Tomcat logs on failure for debugging
+show_tomcat_logs() {
+    local log_file="${INSTALL_BASE}/tomcat/logs/catalina.out"
+    if [[ -f "$log_file" ]]; then
+        log_info "Last 30 lines of Tomcat log:"
+        tail -30 "$log_file" 2>/dev/null || true
+    fi
+}
+
+# Ensure Tomcat is stopped before starting
+# Handles stale processes and PID files
+ensure_tomcat_stopped() {
+    # Check if port is in use
+    if check_port_in_use "$TOMCAT_PORT"; then
+        log_warn "Port $TOMCAT_PORT is already in use"
+
+        # Try graceful shutdown first
+        if [[ -f "${INSTALL_BASE}/tomcat/bin/shutdown.sh" ]]; then
+            log_info "Attempting graceful shutdown..."
+            su - tomcat -s /bin/bash -c "${INSTALL_BASE}/tomcat/bin/shutdown.sh" 2>/dev/null || true
+            if wait_for_tomcat_stop 15; then
+                return 0
+            fi
+        fi
+
+        # Ask user before force-killing
+        if prompt_yes_no "Port $TOMCAT_PORT still in use. Force kill the process?"; then
+            kill_port_process "$TOMCAT_PORT"
+            sleep 2
+            if ! check_port_in_use "$TOMCAT_PORT"; then
+                log_success "Port $TOMCAT_PORT is now free"
+                return 0
+            else
+                log_error "Failed to free port $TOMCAT_PORT"
+                return 1
+            fi
+        else
+            log_error "Cannot proceed with port $TOMCAT_PORT in use"
+            return 1
+        fi
+    fi
+
+    # Clean up stale PID file
+    local pid_file="${INSTALL_BASE}/tomcat/temp/tomcat.pid"
+    if [[ -f "$pid_file" ]]; then
+        local pid
+        pid=$(cat "$pid_file" 2>/dev/null || true)
+        if [[ -n "$pid" ]] && ! kill -0 "$pid" 2>/dev/null; then
+            log_info "Removing stale PID file"
+            rm -f "$pid_file"
+        fi
+    fi
+
+    return 0
+}
+
 # Prompt user for yes/no confirmation (respects ASSUME_YES)
 # Returns 0 for yes, 1 for no
 prompt_yes_no() {
@@ -492,17 +670,41 @@ install_opengrok() {
 deploy_webapp() {
     log_info "Deploying OpenGrok web application..."
 
+    # Ensure no stale Tomcat is running
+    ensure_tomcat_stopped || {
+        log_error "Cannot deploy webapp - failed to stop existing Tomcat"
+        return 1
+    }
+
     # Copy WAR file to Tomcat
+    if [[ ! -f "${INSTALL_BASE}/opengrok/lib/source.war" ]]; then
+        log_error "WAR file not found: ${INSTALL_BASE}/opengrok/lib/source.war"
+        return 1
+    fi
     cp "${INSTALL_BASE}/opengrok/lib/source.war" \
        "${INSTALL_BASE}/tomcat/webapps/"
+    chown tomcat:tomcat "${INSTALL_BASE}/tomcat/webapps/source.war"
 
     # Start Tomcat to auto-deploy
     log_info "Starting Tomcat to deploy WAR..."
-    su - tomcat -s /bin/bash -c "${INSTALL_BASE}/tomcat/bin/startup.sh" || true
+    if ! su - tomcat -s /bin/bash -c "${INSTALL_BASE}/tomcat/bin/startup.sh" 2>&1; then
+        log_error "Failed to start Tomcat"
+        show_tomcat_logs
+        return 1
+    fi
+
+    # Wait for Tomcat to be fully ready (HTTP responding)
+    if ! wait_for_tomcat 90; then
+        log_error "Tomcat failed to start"
+        show_tomcat_logs
+        # Try to stop it anyway
+        su - tomcat -s /bin/bash -c "${INSTALL_BASE}/tomcat/bin/shutdown.sh" 2>/dev/null || true
+        return 1
+    fi
 
     # Wait for deployment with timeout
     local web_xml="${INSTALL_BASE}/tomcat/webapps/source/WEB-INF/web.xml"
-    local timeout=60
+    local timeout=90
     local elapsed=0
     log_info "Waiting for WAR deployment (timeout: ${timeout}s)..."
 
@@ -510,22 +712,32 @@ deploy_webapp() {
         sleep 2
         elapsed=$((elapsed + 2))
         if [[ $((elapsed % 10)) -eq 0 ]]; then
-            log_info "Still waiting... (${elapsed}s elapsed)"
+            log_info "Still waiting for WAR extraction... (${elapsed}s elapsed)"
         fi
     done
 
-    if [[ ! -f "$web_xml" ]]; then
-        log_warn "WAR deployment timeout - web.xml not found after ${timeout}s"
-    else
+    local deployment_ok=false
+    if [[ -f "$web_xml" ]]; then
+        # Give it a couple more seconds for full deployment
+        sleep 3
         log_success "WAR deployed successfully (${elapsed}s)"
+        deployment_ok=true
+    else
+        log_error "WAR deployment timeout - web.xml not found after ${timeout}s"
+        show_tomcat_logs
     fi
 
-    # Stop Tomcat
+    # Stop Tomcat and wait for it to fully stop
     log_info "Stopping Tomcat..."
-    su - tomcat -s /bin/bash -c "${INSTALL_BASE}/tomcat/bin/shutdown.sh" || true
-    sleep 5
+    su - tomcat -s /bin/bash -c "${INSTALL_BASE}/tomcat/bin/shutdown.sh" 2>/dev/null || true
 
-    if [[ -f "$web_xml" ]]; then
+    if ! wait_for_tomcat_stop 30; then
+        log_warn "Tomcat did not stop gracefully, forcing..."
+        kill_port_process "$TOMCAT_PORT"
+        sleep 2
+    fi
+
+    if [[ "$deployment_ok" == true ]] && [[ -f "$web_xml" ]]; then
         # Backup original
         cp "$web_xml" "${web_xml}.bak"
 
@@ -536,7 +748,8 @@ deploy_webapp() {
             log_success "Configured web.xml"
         fi
     else
-        log_warn "web.xml not found - WAR may not be deployed yet"
+        log_error "WAR deployment failed"
+        return 1
     fi
 
     return 0
@@ -635,6 +848,13 @@ Environment="CATALINA_BASE=${INSTALL_BASE}/tomcat"
 ExecStart=${INSTALL_BASE}/tomcat/bin/startup.sh
 ExecStop=${INSTALL_BASE}/tomcat/bin/shutdown.sh
 
+# Startup/shutdown timeouts
+TimeoutStartSec=90
+TimeoutStopSec=30
+
+# Clean up stale PID file before starting
+ExecStartPre=/bin/bash -c 'rm -f ${INSTALL_BASE}/tomcat/temp/tomcat.pid'
+
 User=tomcat
 Group=tomcat
 UMask=0007
@@ -658,26 +878,53 @@ EOF
 start_opengrok() {
     log_info "Starting OpenGrok..."
 
+    # Ensure no stale Tomcat is running first
+    ensure_tomcat_stopped || {
+        log_error "Cannot start OpenGrok - failed to stop existing Tomcat"
+        return 1
+    }
+
     if [[ "$INSTALL_SYSTEMD" == true ]] && command -v systemctl &> /dev/null; then
-        systemctl start tomcat
-
-        # Wait for startup
-        sleep 5
-
-        if systemctl is-active --quiet tomcat; then
-            log_success "OpenGrok started via systemd"
-            return 0
+        # Check if service file exists
+        if [[ ! -f /etc/systemd/system/tomcat.service ]]; then
+            log_warn "Systemd service not found, starting directly"
         else
-            log_error "Failed to start via systemd"
-            journalctl -u tomcat -n 20 --no-pager
-            return 1
+            if ! systemctl start tomcat; then
+                log_error "systemctl start tomcat failed"
+                journalctl -u tomcat -n 30 --no-pager 2>/dev/null || true
+                show_tomcat_logs
+                return 1
+            fi
+
+            # Wait for Tomcat to be actually ready (HTTP responding)
+            if wait_for_tomcat 90; then
+                log_success "OpenGrok started via systemd"
+                return 0
+            else
+                log_error "Failed to start via systemd - Tomcat not responding"
+                journalctl -u tomcat -n 30 --no-pager 2>/dev/null || true
+                show_tomcat_logs
+                return 1
+            fi
         fi
-    else
-        # Start directly
-        su - tomcat -s /bin/bash -c "${INSTALL_BASE}/tomcat/bin/startup.sh"
-        sleep 5
+    fi
+
+    # Start directly (non-systemd or systemd service not found)
+    log_info "Starting Tomcat directly..."
+    if ! su - tomcat -s /bin/bash -c "${INSTALL_BASE}/tomcat/bin/startup.sh" 2>&1; then
+        log_error "Failed to execute startup.sh"
+        show_tomcat_logs
+        return 1
+    fi
+
+    # Wait for Tomcat to be actually ready (HTTP responding)
+    if wait_for_tomcat 90; then
         log_success "OpenGrok started"
         return 0
+    else
+        log_error "Tomcat failed to become ready"
+        show_tomcat_logs
+        return 1
     fi
 }
 
@@ -814,6 +1061,38 @@ main() {
 
     # Check if running as root
     check_root
+
+    # Pre-flight checks
+    log_info "Running pre-flight checks..."
+
+    # Check for required commands
+    local missing_cmds=()
+    for cmd in tar gzip; do
+        if ! command -v "$cmd" &>/dev/null; then
+            missing_cmds+=("$cmd")
+        fi
+    done
+    if [[ ${#missing_cmds[@]} -gt 0 ]]; then
+        log_error "Missing required commands: ${missing_cmds[*]}"
+        exit 1
+    fi
+
+    # Check if port is already in use
+    if check_port_in_use "$TOMCAT_PORT"; then
+        log_warn "Port $TOMCAT_PORT is already in use"
+        if prompt_yes_no "Attempt to stop the process using port $TOMCAT_PORT?"; then
+            kill_port_process "$TOMCAT_PORT"
+            sleep 2
+            if check_port_in_use "$TOMCAT_PORT"; then
+                log_error "Failed to free port $TOMCAT_PORT - cannot proceed"
+                exit 1
+            fi
+            log_success "Port $TOMCAT_PORT is now free"
+        else
+            log_error "Port $TOMCAT_PORT must be free to proceed"
+            exit 1
+        fi
+    fi
 
     # Check disk space (require 2GB for installation)
     check_disk_space 2048 "$INSTALL_BASE" || exit 1
