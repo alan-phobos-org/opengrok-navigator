@@ -45,6 +45,7 @@
 * The opus model + thinking change was good but it still makes mistakes and it absolutely burns through the limits. I'll try again with just thinking and not opus and vise-versa.
 * It taught me about Multipass which looks really cool
 * Testing setup scripts: It took a comprehensive design doc and implemented both automated test script and manual test management script with full state management, caching, and multi-instance support. Compacted 1020 lines to 250 lines while keeping all essential info
+* The lldb stuff was harder for it. Particularly when doing performance optimisations it just started lying about how much better it had made things. You need to force it to work with real data by adding a timing metric to key commands.
 
 # Testing
 

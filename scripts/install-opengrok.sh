@@ -168,7 +168,7 @@ detect_memory() {
         total_bytes=$(sysctl -n hw.memsize 2>/dev/null || sysctl -n hw.physmem 2>/dev/null)
         total_mb=$((total_bytes / 1024 / 1024))
     else
-        log_warn "Cannot detect system memory - defaulting to 2048MB for indexer"
+        log_warn "Cannot detect system memory - defaulting to 2048MB for indexer" >&2
         echo "2048"
         return 0
     fi
@@ -181,7 +181,7 @@ detect_memory() {
         indexer_mb=8192
     fi
 
-    log_info "System memory: ${total_mb}MB, Allocating ${indexer_mb}MB for indexer"
+    log_info "System memory: ${total_mb}MB, Allocating ${indexer_mb}MB for indexer" >&2
     echo "$indexer_mb"
 }
 
