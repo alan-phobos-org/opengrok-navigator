@@ -51,6 +51,16 @@ Bidirectional VS Code ↔ OpenGrok integration via two extensions.
 **VS Code**: `cd vscode-extension && npm install && npm run compile`
 **Chrome**: No build needed - load unpacked from `chrome-extension/`
 
+## OpenGrok Installer Scripts (`scripts/`)
+
+**Target Platform**: Ubuntu 20.04+ (also works on RHEL/CentOS with iptables)
+
+**Key files**:
+- [install-opengrok.sh](scripts/install-opengrok.sh) - Offline installer
+- [download-dependencies.sh](scripts/download-dependencies.sh) - Downloads required tarballs
+
+**Port 80 Support**: Uses iptables NAT rules to redirect privileged ports (< 1024) to Tomcat on 8080. Requires `iptables` package; for persistence install `iptables-persistent` (Ubuntu) or `iptables-services` (RHEL).
+
 ## Hints
 
 * Claude is extremely concise when reporting progress and summarising changes (don't include line numbers or precise files)

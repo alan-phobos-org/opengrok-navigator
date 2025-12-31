@@ -34,6 +34,8 @@ readonly NC='\033[0m' # No Color
 INSTALL_BASE="/opt"
 DATA_BASE="/var/opengrok"
 TOMCAT_PORT="8080"
+TOMCAT_INTERNAL_PORT="8080"  # Actual port Tomcat listens on (may differ if using port forwarding)
+USE_PORT_FORWARDING=false    # Set to true when port 80 requested
 PROJECT_NAME=""  # Auto-detect if not specified
 INSTALL_SYSTEMD=true
 RUN_INDEXING=true
@@ -136,7 +138,7 @@ kill_port_process() {
 # Returns 0 when ready, 1 on timeout
 wait_for_tomcat() {
     local timeout="${1:-60}"
-    local url="http://localhost:${TOMCAT_PORT}/"
+    local url="http://localhost:${TOMCAT_INTERNAL_PORT}/"
     local elapsed=0
 
     # Check if we have a way to make HTTP requests
@@ -144,7 +146,7 @@ wait_for_tomcat() {
         log_warn "Neither curl nor wget available - falling back to port check"
         # Fall back to just checking if port is listening
         while [[ $elapsed -lt $timeout ]]; do
-            if check_port_in_use "$TOMCAT_PORT"; then
+            if check_port_in_use "$TOMCAT_INTERNAL_PORT"; then
                 log_success "Tomcat port is listening (${elapsed}s) - assuming ready"
                 return 0
             fi
@@ -196,7 +198,7 @@ wait_for_tomcat_stop() {
     log_info "Waiting for Tomcat to stop (timeout: ${timeout}s)..."
 
     while [[ $elapsed -lt $timeout ]]; do
-        if ! check_port_in_use "$TOMCAT_PORT"; then
+        if ! check_port_in_use "$TOMCAT_INTERNAL_PORT"; then
             log_success "Tomcat stopped (${elapsed}s)"
             return 0
         fi
@@ -221,8 +223,8 @@ show_tomcat_logs() {
 # Handles stale processes and PID files
 ensure_tomcat_stopped() {
     # Check if port is in use
-    if check_port_in_use "$TOMCAT_PORT"; then
-        log_warn "Port $TOMCAT_PORT is already in use"
+    if check_port_in_use "$TOMCAT_INTERNAL_PORT"; then
+        log_warn "Port $TOMCAT_INTERNAL_PORT is already in use"
 
         # Try graceful shutdown first
         if [[ -f "${INSTALL_BASE}/tomcat/bin/shutdown.sh" ]]; then
@@ -234,18 +236,18 @@ ensure_tomcat_stopped() {
         fi
 
         # Ask user before force-killing
-        if prompt_yes_no "Port $TOMCAT_PORT still in use. Force kill the process?"; then
-            kill_port_process "$TOMCAT_PORT"
+        if prompt_yes_no "Port $TOMCAT_INTERNAL_PORT still in use. Force kill the process?"; then
+            kill_port_process "$TOMCAT_INTERNAL_PORT"
             sleep 2
-            if ! check_port_in_use "$TOMCAT_PORT"; then
-                log_success "Port $TOMCAT_PORT is now free"
+            if ! check_port_in_use "$TOMCAT_INTERNAL_PORT"; then
+                log_success "Port $TOMCAT_INTERNAL_PORT is now free"
                 return 0
             else
-                log_error "Failed to free port $TOMCAT_PORT"
+                log_error "Failed to free port $TOMCAT_INTERNAL_PORT"
                 return 1
             fi
         else
-            log_error "Cannot proceed with port $TOMCAT_PORT in use"
+            log_error "Cannot proceed with port $TOMCAT_INTERNAL_PORT in use"
             return 1
         fi
     fi
@@ -295,6 +297,111 @@ sed_inplace() {
         # BSD sed (macOS)
         sed -i '' "$pattern" "$file"
     fi
+}
+
+# Setup iptables port forwarding (redirect port 80 -> internal port)
+# This allows Tomcat to run as non-root while still serving on port 80
+# Tested on Ubuntu 20.04+ (works with both iptables-legacy and iptables-nft)
+setup_port_forwarding() {
+    local external_port="$1"
+    local internal_port="$2"
+
+    log_info "Setting up port forwarding: $external_port -> $internal_port"
+
+    # Check if iptables is available
+    if ! command -v iptables &>/dev/null; then
+        log_error "iptables not found - cannot set up port forwarding"
+        log_error "Install iptables or use a different port (e.g., 8080)"
+        return 1
+    fi
+
+    # Remove any existing rules for this port (idempotent)
+    # Try multiple times in case there are duplicate rules
+    for _ in 1 2 3; do
+        iptables -t nat -D PREROUTING -p tcp --dport "$external_port" -j REDIRECT --to-port "$internal_port" 2>/dev/null || true
+        iptables -t nat -D OUTPUT -p tcp --dport "$external_port" -j REDIRECT --to-port "$internal_port" 2>/dev/null || true
+    done
+
+    # Add PREROUTING rule (for external/remote connections)
+    if ! iptables -t nat -A PREROUTING -p tcp --dport "$external_port" -j REDIRECT --to-port "$internal_port"; then
+        log_error "Failed to add PREROUTING iptables rule"
+        return 1
+    fi
+
+    # Add OUTPUT rule (for localhost connections - matches packets generated locally)
+    # Note: Don't use -o lo here; OUTPUT nat happens before routing decision
+    if ! iptables -t nat -A OUTPUT -p tcp --dport "$external_port" -j REDIRECT --to-port "$internal_port"; then
+        log_error "Failed to add OUTPUT iptables rule"
+        # Clean up the PREROUTING rule we just added
+        iptables -t nat -D PREROUTING -p tcp --dport "$external_port" -j REDIRECT --to-port "$internal_port" 2>/dev/null || true
+        return 1
+    fi
+
+    log_success "Port forwarding configured: $external_port -> $internal_port"
+
+    # Save iptables rules for persistence across reboots
+    persist_iptables_rules
+
+    return 0
+}
+
+# Persist iptables rules across reboots (Ubuntu/Debian and RHEL/CentOS)
+persist_iptables_rules() {
+    if ! command -v iptables-save &>/dev/null; then
+        log_warn "iptables-save not found - rules will be lost on reboot"
+        return
+    fi
+
+    local saved=false
+
+    # Ubuntu/Debian with iptables-persistent (creates /etc/iptables/ directory)
+    if [[ -d /etc/iptables ]]; then
+        if iptables-save > /etc/iptables/rules.v4 2>/dev/null; then
+            log_info "iptables rules saved to /etc/iptables/rules.v4"
+            saved=true
+        fi
+    fi
+
+    # RHEL/CentOS/Fedora
+    if [[ -f /etc/sysconfig/iptables ]] || [[ -d /etc/sysconfig ]]; then
+        if iptables-save > /etc/sysconfig/iptables 2>/dev/null; then
+            log_info "iptables rules saved to /etc/sysconfig/iptables"
+            saved=true
+        fi
+    fi
+
+    if [[ "$saved" != true ]]; then
+        log_warn "Could not persist iptables rules - they will be lost on reboot"
+        log_warn "On Ubuntu/Debian: sudo apt install iptables-persistent"
+        log_warn "On RHEL/CentOS: sudo yum install iptables-services"
+    fi
+}
+
+# Remove iptables port forwarding rules
+remove_port_forwarding() {
+    local external_port="$1"
+    local internal_port="$2"
+
+    log_info "Removing port forwarding: $external_port -> $internal_port"
+
+    if command -v iptables &>/dev/null; then
+        # Remove rules (try multiple times for duplicates)
+        for _ in 1 2 3; do
+            iptables -t nat -D PREROUTING -p tcp --dport "$external_port" -j REDIRECT --to-port "$internal_port" 2>/dev/null || true
+            iptables -t nat -D OUTPUT -p tcp --dport "$external_port" -j REDIRECT --to-port "$internal_port" 2>/dev/null || true
+        done
+        log_success "Port forwarding rules removed"
+    fi
+}
+
+# Check if port forwarding is needed (privileged port requested)
+check_privileged_port() {
+    local port="$1"
+
+    if [[ "$port" -lt 1024 ]]; then
+        return 0  # Is privileged
+    fi
+    return 1  # Not privileged
 }
 
 show_help() {
@@ -617,11 +724,11 @@ install_tomcat() {
     # Set permissions
     chown -R tomcat:tomcat "${INSTALL_BASE}/tomcat"
 
-    # Configure port if not default
-    if [[ "$TOMCAT_PORT" != "8080" ]]; then
-        sed_inplace "s/port=\"8080\"/port=\"$TOMCAT_PORT\"/" \
+    # Configure port if not default (use internal port - actual port Tomcat listens on)
+    if [[ "$TOMCAT_INTERNAL_PORT" != "8080" ]]; then
+        sed_inplace "s/port=\"8080\"/port=\"$TOMCAT_INTERNAL_PORT\"/" \
             "${INSTALL_BASE}/tomcat/conf/server.xml"
-        log_info "Configured Tomcat port: $TOMCAT_PORT"
+        log_info "Configured Tomcat internal port: $TOMCAT_INTERNAL_PORT"
     fi
 
     log_success "Tomcat installed successfully"
@@ -733,7 +840,7 @@ deploy_webapp() {
 
     if ! wait_for_tomcat_stop 30; then
         log_warn "Tomcat did not stop gracefully, forcing..."
-        kill_port_process "$TOMCAT_PORT"
+        kill_port_process "$TOMCAT_INTERNAL_PORT"
         sleep 2
     fi
 
@@ -948,6 +1055,12 @@ print_summary() {
     echo
     echo "Access OpenGrok:"
     echo "  http://localhost:${TOMCAT_PORT}/source"
+    if [[ "$USE_PORT_FORWARDING" == true ]]; then
+        echo
+        echo "Port forwarding:"
+        echo "  External port $TOMCAT_PORT -> Internal port $TOMCAT_INTERNAL_PORT (via iptables)"
+        echo "  Tomcat runs on port $TOMCAT_INTERNAL_PORT, iptables redirects port $TOMCAT_PORT"
+    fi
     echo
     echo "Management:"
     if [[ "$INSTALL_SYSTEMD" == true ]]; then
@@ -1056,11 +1169,25 @@ main() {
     echo "  Install to:   $INSTALL_BASE"
     echo "  Data dir:     $DATA_BASE"
     echo "  HTTP port:    $TOMCAT_PORT"
+    if check_privileged_port "$TOMCAT_PORT"; then
+        echo "  (port forwarding will be used: $TOMCAT_PORT -> 8080)"
+    fi
     echo "================================================================"
     echo
 
     # Check if running as root
     check_root
+
+    # Handle privileged ports (< 1024) by using iptables port forwarding
+    if check_privileged_port "$TOMCAT_PORT"; then
+        log_info "Privileged port $TOMCAT_PORT requested"
+        log_info "Will use iptables to forward port $TOMCAT_PORT -> 8080"
+        TOMCAT_INTERNAL_PORT="8080"
+        USE_PORT_FORWARDING=true
+    else
+        TOMCAT_INTERNAL_PORT="$TOMCAT_PORT"
+        USE_PORT_FORWARDING=false
+    fi
 
     # Pre-flight checks
     log_info "Running pre-flight checks..."
@@ -1077,19 +1204,44 @@ main() {
         exit 1
     fi
 
-    # Check if port is already in use
-    if check_port_in_use "$TOMCAT_PORT"; then
-        log_warn "Port $TOMCAT_PORT is already in use"
+    # Check if iptables is available when port forwarding is needed
+    if [[ "$USE_PORT_FORWARDING" == true ]] && ! command -v iptables &>/dev/null; then
+        log_error "iptables is required for port $TOMCAT_PORT but not found"
+        log_error "Either install iptables or use a non-privileged port (>= 1024)"
+        exit 1
+    fi
+
+    # Check if internal port is already in use
+    if check_port_in_use "$TOMCAT_INTERNAL_PORT"; then
+        log_warn "Port $TOMCAT_INTERNAL_PORT is already in use"
+        if prompt_yes_no "Attempt to stop the process using port $TOMCAT_INTERNAL_PORT?"; then
+            kill_port_process "$TOMCAT_INTERNAL_PORT"
+            sleep 2
+            if check_port_in_use "$TOMCAT_INTERNAL_PORT"; then
+                log_error "Failed to free port $TOMCAT_INTERNAL_PORT - cannot proceed"
+                exit 1
+            fi
+            log_success "Port $TOMCAT_INTERNAL_PORT is now free"
+        else
+            log_error "Port $TOMCAT_INTERNAL_PORT must be free to proceed"
+            exit 1
+        fi
+    fi
+
+    # Check if external port is in use (when using port forwarding)
+    if [[ "$USE_PORT_FORWARDING" == true ]] && check_port_in_use "$TOMCAT_PORT"; then
+        log_warn "External port $TOMCAT_PORT is already in use by another service"
         if prompt_yes_no "Attempt to stop the process using port $TOMCAT_PORT?"; then
             kill_port_process "$TOMCAT_PORT"
             sleep 2
             if check_port_in_use "$TOMCAT_PORT"; then
                 log_error "Failed to free port $TOMCAT_PORT - cannot proceed"
+                log_error "Another web server (nginx, apache, etc.) may be using this port"
                 exit 1
             fi
             log_success "Port $TOMCAT_PORT is now free"
         else
-            log_error "Port $TOMCAT_PORT must be free to proceed"
+            log_error "Port $TOMCAT_PORT must be free for port forwarding to work"
             exit 1
         fi
     fi
@@ -1128,6 +1280,13 @@ main() {
     show_progress "$current_step" "$total_steps" "Installing Tomcat (step $current_step/$total_steps)"
     install_tomcat "$DEPS_DIR" || exit 1
     echo
+
+    # Setup port forwarding if needed (privileged port requested)
+    if [[ "$USE_PORT_FORWARDING" == true ]]; then
+        log_info "Setting up port forwarding for privileged port..."
+        setup_port_forwarding "$TOMCAT_PORT" "$TOMCAT_INTERNAL_PORT" || exit 1
+        echo
+    fi
 
     current_step=$((current_step + 1))
     show_progress "$current_step" "$total_steps" "Installing OpenGrok (step $current_step/$total_steps)"
