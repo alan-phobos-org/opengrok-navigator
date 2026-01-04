@@ -7,3 +7,6 @@ out
 dist/
 .DS_Store
 LEARNING.md
+
+# og CLI binary
+og/og

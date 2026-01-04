@@ -1,7 +1,7 @@
 # OpenGrok Navigator Build System
-# Builds both VS Code and Chrome extensions and creates distribution packages
+# Builds VS Code extension, Chrome extension, and og CLI tool
 
-.PHONY: all clean build-vscode build-chrome source dist dev help
+.PHONY: all clean build-vscode build-chrome build-og dist-og dist-scripts test-og source dist dev help
 
 # Default target
 all: dist
@@ -13,6 +13,10 @@ help:
 	@echo "  all          - Build everything and create single distribution zip (default)"
 	@echo "  build-vscode - Build VS Code extension (.vsix)"
 	@echo "  build-chrome - Package Chrome extension (.zip)"
+	@echo "  build-og     - Build og CLI tool (requires Go)"
+	@echo "  dist-og      - Package og CLI as zip (source + binary)"
+	@echo "  dist-scripts - Package VM setup scripts as zip"
+	@echo "  test-og      - Run og CLI unit tests"
 	@echo "  source       - Create source-only package (without .git, node_modules, etc.)"
 	@echo "  dist         - Build all and create single distribution zip with built extensions"
 	@echo "  clean        - Remove all build artifacts"
@@ -26,6 +30,8 @@ clean:
 	rm -rf vscode-extension/out/
 	rm -rf vscode-extension/*.vsix
 	rm -rf chrome-extension/*.zip
+	rm -f og/og og/og-* og/*.zip
+	rm -rf scripts/*.zip
 	@echo "Clean complete"
 
 # Build VS Code extension
@@ -51,6 +57,40 @@ build-chrome:
 		-x "*.zip" "dist/*" ".DS_Store"
 	@echo "Chrome extension packaged successfully"
 
+# Build og CLI tool
+build-og:
+	@echo "Building og CLI tool..."
+	cd og && go build -o og .
+	@echo "og CLI built successfully"
+
+# Package og CLI as zip (source + binary)
+dist-og: build-og
+	@echo "Packaging og CLI..."
+	cd og && zip -r og-cli.zip \
+		*.go \
+		go.mod \
+		go.sum \
+		README.md \
+		og \
+		-x "*_test.go"
+	@echo "og CLI packaged successfully"
+
+# Package VM setup scripts as zip
+dist-scripts:
+	@echo "Packaging VM setup scripts..."
+	cd scripts && zip -r opengrok-scripts.zip \
+		install-opengrok.sh \
+		download-dependencies.sh \
+		README.md \
+		QUICKSTART.txt
+	@echo "VM setup scripts packaged successfully"
+
+# Run og CLI tests
+test-og:
+	@echo "Running og CLI tests..."
+	cd og && go test -v -timeout 30s ./...
+	@echo "og CLI tests passed"
+
 # Create source distribution package
 source:
 	@echo "Creating source package..."
@@ -69,22 +109,28 @@ source:
 	@echo "Source package created in dist/"
 
 # Build everything and create distribution
-dist: clean build-vscode build-chrome
+dist: clean build-vscode build-chrome dist-og dist-scripts
 	@echo "Creating distribution package..."
 	@mkdir -p dist/package
 	@VERSION=$$(grep '"version"' vscode-extension/package.json | head -1 | sed 's/.*"version": "\(.*\)".*/\1/') && \
 	cp vscode-extension/*.vsix dist/package/ 2>/dev/null && \
 	cp chrome-extension/opengrok-navigator-chrome.zip dist/package/ 2>/dev/null && \
+	cp og/og-cli.zip dist/package/ 2>/dev/null && \
+	cp scripts/opengrok-scripts.zip dist/package/ 2>/dev/null && \
 	cp README.md dist/package/ && \
 	cp LICENSE dist/package/ && \
 	cp BUILD.md dist/package/ && \
+	cp CHANGELOG.md dist/package/ && \
 	echo "# OpenGrok Navigator v$$VERSION" > dist/package/VERSION.txt && \
 	echo "" >> dist/package/VERSION.txt && \
 	echo "Contents:" >> dist/package/VERSION.txt && \
 	echo "- opengrok-navigator-*.vsix - VS Code extension" >> dist/package/VERSION.txt && \
 	echo "- opengrok-navigator-chrome.zip - Chrome extension" >> dist/package/VERSION.txt && \
+	echo "- og-cli.zip - OpenGrok CLI tool (source + binary)" >> dist/package/VERSION.txt && \
+	echo "- opengrok-scripts.zip - VM setup scripts for OpenGrok server" >> dist/package/VERSION.txt && \
 	echo "- README.md - User documentation" >> dist/package/VERSION.txt && \
 	echo "- BUILD.md - Build instructions" >> dist/package/VERSION.txt && \
+	echo "- CHANGELOG.md - Version history" >> dist/package/VERSION.txt && \
 	echo "- LICENSE - MIT license" >> dist/package/VERSION.txt && \
 	cd dist && zip -r opengrok-navigator-v$$VERSION.zip package/ && \
 	rm -rf package/
@@ -96,5 +142,5 @@ dist: clean build-vscode build-chrome
 	@echo "=========================================="
 
 # Quick build for development (no clean)
-dev: build-vscode build-chrome
+dev: build-vscode build-chrome build-og
 	@echo "Development build complete"

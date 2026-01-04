@@ -222,9 +222,9 @@ See [QUICK_FILE_FINDER_DESIGN.md](QUICK_FILE_FINDER_DESIGN.md) for details.
 opengrok-navigator/
 ├── vscode-extension/           # VS Code → OpenGrok navigation
 │   ├── src/extension.ts
-│   └── package.json (v1.2.0)
+│   └── package.json (v1.3.0)
 ├── chrome-extension/           # OpenGrok → VS Code navigation
-│   ├── manifest.json (v1.2.0)
+│   ├── manifest.json (v1.3.0)
 │   ├── content.js
 │   ├── background.js
 │   ├── dark-mode-init.js

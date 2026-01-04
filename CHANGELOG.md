@@ -1,5 +1,33 @@
 # Changelog
 
+## [1.3.0] - 2026-01-04
+
+### Added
+- **og CLI Tool**: New command-line OpenGrok search client written in Go
+  - Search types: full, def, symbol, path, hist
+  - Call graph tracing with `trace` command for exploring code relationships
+  - Clickable web links with `--web-links` / `-w` option
+  - Project listing and filtering
+  - Configuration persistence with `og init`
+  - See [og/README.md](og/README.md) for full documentation
+
+- **VS Code Extension**: Configurable search settings
+  - `searchTimeout` setting for slow servers (default 30s)
+  - `contextLength` setting for result context display (default 300 chars)
+  - Word-boundary aware context truncation
+
+### Improved
+- **VS Code Extension**: Better error handling for search requests
+  - Specific error messages for connection refused, hostname not found, timeouts
+  - Clear authentication failure messages (401 errors)
+  - Server error handling (5xx errors)
+
+- **OpenGrok Installer Scripts**: Major improvements to offline installation
+  - Comprehensive testing with VM automation
+  - Better error handling and progress reporting
+  - Input validation fixes
+  - Added test harness with Multipass VMs
+
 ## [1.2.0] - 2025-12-20
 
 ### Fixed

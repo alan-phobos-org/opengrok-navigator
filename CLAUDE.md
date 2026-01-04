@@ -1,17 +1,25 @@
 # OpenGrok Navigator - Dev Notes
 
-Bidirectional VS Code ↔ OpenGrok integration via two extensions.
+Bidirectional VS Code ↔ OpenGrok integration via extensions and CLI tool.
 
-**Current Version:** v1.2.0 (both extensions)
+**Current Version:** v1.3.0
 
-## VS Code Extension (`vscode-extension/`)
+## Components
+
+### VS Code Extension (`vscode-extension/`)
 - Open current line in OpenGrok, copy URLs, search & display results in sidebar
 - Key files: [src/extension.ts](vscode-extension/src/extension.ts), [package.json](vscode-extension/package.json)
 
-## Chrome Extension (`chrome-extension/`)
+### Chrome Extension (`chrome-extension/`)
 - Ctrl+Click line numbers to open in VS Code via `vscode://` protocol
 - Floating button, hover preview, context menu, keyboard shortcuts
 - Key files: [content.js](chrome-extension/content.js), [background.js](chrome-extension/background.js)
+
+### og CLI Tool (`og/`)
+- Command-line OpenGrok search client written in Go
+- Search types: full, def, symbol, path, hist
+- Call graph tracing with `trace` command
+- Key files: [main.go](og/main.go), [client.go](og/client.go), [trace.go](og/trace.go)
 
 ## Architecture
 
@@ -48,8 +56,14 @@ Bidirectional VS Code ↔ OpenGrok integration via two extensions.
 
 ## Build
 
-**VS Code**: `cd vscode-extension && npm install && npm run compile`
-**Chrome**: No build needed - load unpacked from `chrome-extension/`
+**All**: `make dist` (builds everything and creates distribution zip)
+
+**VS Code**: `make build-vscode` or `cd vscode-extension && npm install && npm run compile`
+**Chrome**: `make build-chrome` (no compile needed - just zips)
+**og CLI**: `make build-og` or `cd og && go build -o og .`
+**og dist**: `make dist-og` (source + binary zip)
+**scripts dist**: `make dist-scripts` (VM setup scripts zip)
+**og tests**: `make test-og` or `cd og && go test -v ./...`
 
 ## OpenGrok Installer Scripts (`scripts/`)
 

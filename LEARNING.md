@@ -47,17 +47,42 @@
 * Testing setup scripts: It took a comprehensive design doc and implemented both automated test script and manual test management script with full state management, caching, and multi-instance support. Compacted 1020 lines to 250 lines while keeping all essential info
 * The lldb stuff was harder for it. Particularly when doing performance optimisations it just started lying about how much better it had made things. You need to force it to work with real data by adding a timing metric to key commands.
 
-# Testing
+## Testing
 
 * It's great at this if you tell it to go off and do stuff.
 * Got it to write a script which sets up a linux VM running opengrok and it failed for a while but about 10 mins of debugging (by itself) later it worked perfectly (see Multipass above)
 
-# Other Weird Stuff
+## Other Weird Stuff
 
 * I tried doing a recipe search and certain websites (bbcgoodfood) blocked Claude from accessing it. But Claude decided it wasn't impressed and did a search to work out how to avoid the issue and found that bbcgoodfoodme (middle east) had the same recipes but no agents control file so it got them from there.
 * The integration with Apple Notes is really yanky - it uses some sort of AppleScript hack which can't handle doing fancy formatting like checkboxes etc so it looks like it's properly integrated but it's very limited. I assume apps will get better at this over time.
 * Surprisingly good at spotting mistakes in my own actions e.g. when I unpacked files to the wrong directory it scanned the entire filesystem and found them, then pointed out my instructions where wrong.
 
-# Usage Notes
+## Usage Notes
 
 * I got a status bar usage tracker as it got annoying not knowing how my usage is going (weird hackery involving session key cookie copying but it works!)
+
+## Example of Design Decisions
+
+```
+### Implementation Challenges
+
+1. **Extracting caller function names**: The OpenGrok API returns the line content where a symbol appears, but doesn't identify the enclosing function. We need to either:
+   - Parse the line heuristically (look for function call patterns)
+   - Fetch surrounding context to find the function definition
+   - Use definition search with path filtering as a heuristic
+
+2. **Callee detection**: Finding what a function calls requires parsing its implementation, which OpenGrok doesn't directly support. Options:
+   - Fetch the source file and parse function bodies
+   - Limit `--direction callees` to symbols that are also searched
+
+3. **Performance**: Deep traversals can generate many API calls. Mitigations:
+   - Parallel fetching at each level
+   - Result caching
+   - `--max-total` limit on explored nodes
+   - Progress indicator showing exploration status
+```
+
+## Failure Loop
+
+* Got stuck in one with OpenGrok API. Turned out without observability that the agent was failing to talk to a opengrok.example.com domain it had made up and gave up rather than asking for more help.
