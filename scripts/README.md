@@ -174,18 +174,64 @@ http://localhost:8080/source
 
 ### Multi-Project Setup
 
+OpenGrok can index multiple projects simultaneously. Each top-level directory under your source root becomes a separate "project" in the OpenGrok UI, allowing you to search within a single project or across all projects.
+
+**Source Directory Structure:**
+```
+/data/sources/                    # Source root (passed to install script)
+├── linux-kernel/                 # Project 1
+│   ├── arch/
+│   ├── drivers/
+│   ├── kernel/
+│   └── ...
+├── my-application/               # Project 2
+│   ├── src/
+│   ├── tests/
+│   └── pom.xml
+├── third-party-lib/              # Project 3
+│   ├── include/
+│   └── src/
+└── scripts/                      # Project 4
+    └── *.sh
+```
+
+**Important:** Each immediate subdirectory of the source root is treated as a separate project. Don't put source files directly in the root - always organize into project subdirectories.
+
+**Setting Up Multiple Projects:**
 ```bash
-# Prepare source with multiple projects
+# Create source directory structure
 mkdir -p /data/sources
 cd /data/sources
-mkdir project-a project-b project-c
-# ... copy source into each ...
 
-# Install
+# Clone or copy each project as a subdirectory
+git clone https://github.com/org/project-a.git
+git clone https://github.com/org/project-b.git
+cp -r /path/to/legacy-code ./legacy-project
+
+# Install OpenGrok pointing to the source root
 sudo ./install-opengrok.sh ./opengrok-dependencies /data/sources
 ```
 
-OpenGrok will detect and index all projects automatically.
+OpenGrok will detect and index all projects automatically. In the web UI, you can:
+- Select specific projects to search within
+- Browse each project's directory tree separately
+- View cross-references across all projects
+
+**Adding New Projects Later:**
+```bash
+# Add new project to source directory
+cd /var/opengrok/src
+git clone https://github.com/org/new-project.git
+
+# Re-index to include the new project
+sudo /opt/java/bin/java \
+  -jar /opt/opengrok/lib/opengrok.jar \
+  -c /usr/local/bin/ctags \
+  -s /var/opengrok/src \
+  -d /var/opengrok/data \
+  -H -P -S -G \
+  -W /var/opengrok/etc/configuration.xml
+```
 
 ### Re-indexing After Source Changes
 
@@ -238,6 +284,92 @@ sudo su - tomcat -s /bin/bash -c '/opt/tomcat/bin/shutdown.sh'
 tail -f /opt/tomcat/logs/catalina.out
 ```
 
+## Logs and Debugging
+
+### Log Locations
+
+**Tomcat/OpenGrok Logs:**
+- Main log: `/opt/tomcat/logs/catalina.out` (or `${INSTALL_BASE}/tomcat/logs/catalina.out`)
+- Application logs: `/opt/tomcat/logs/localhost.*.log`
+- Access logs: `/opt/tomcat/logs/localhost_access_log.*.txt`
+
+**View logs:**
+```bash
+# Tail main Tomcat log
+tail -f /opt/tomcat/logs/catalina.out
+
+# View last 50 lines
+tail -50 /opt/tomcat/logs/catalina.out
+
+# Search for errors
+grep -i error /opt/tomcat/logs/catalina.out
+grep -i exception /opt/tomcat/logs/catalina.out
+```
+
+**Systemd Service Logs** (if using systemd):
+```bash
+# View recent logs
+sudo journalctl -u tomcat -n 100
+
+# Follow logs in real-time
+sudo journalctl -u tomcat -f
+
+# View logs since last boot
+sudo journalctl -u tomcat -b
+
+# View logs with timestamps
+sudo journalctl -u tomcat -o short-precise
+```
+
+**OpenGrok Indexer Logs:**
+
+The indexer runs as a one-time command and outputs to stdout/stderr. When run via the install script, output appears in the terminal. For scheduled reindexing via cron, redirect to a log file:
+
+```bash
+# Example cron job with logging
+0 2 * * * /opt/java/bin/java -jar /opt/opengrok/lib/opengrok.jar \
+  -c /usr/local/bin/ctags \
+  -s /var/opengrok/src \
+  -d /var/opengrok/data \
+  -H -P -S -G \
+  -W /var/opengrok/etc/configuration.xml \
+  >> /var/log/opengrok-reindex.log 2>&1
+```
+
+### Common Issues and Solutions
+
+**Tomcat starts then immediately stops:**
+
+This usually indicates a configuration or permission issue.
+
+**Check systemd status:**
+```bash
+sudo systemctl status tomcat
+```
+
+**Check recent logs:**
+```bash
+sudo journalctl -u tomcat -n 50
+tail -50 /opt/tomcat/logs/catalina.out
+```
+
+**Common causes:**
+1. **Port conflict** - Check if ports 8080 or 8005 are in use
+2. **Permission issue** - Ensure tomcat user owns all files:
+   ```bash
+   sudo chown -R tomcat:tomcat /opt/tomcat
+   sudo chown -R tomcat:tomcat /var/opengrok
+   ```
+3. **Missing JAVA_HOME** - Verify environment:
+   ```bash
+   sudo -u tomcat env | grep JAVA
+   ```
+4. **PID file issue** - Remove stale PID file:
+   ```bash
+   sudo rm -f /opt/tomcat/temp/tomcat.pid
+   sudo systemctl restart tomcat
+   ```
+
 ## Troubleshooting
 
 ### Download script fails
@@ -275,6 +407,75 @@ sudo ./install-opengrok.sh --port 9090 ...
 ```bash
 sudo netstat -tlnp | grep 8080
 ```
+
+**Problem:** Shutdown port 8005 already in use
+
+Error message: `failed to create server shutdown socket on address ... port [8005]`
+
+This happens when another Tomcat instance (or other Java application) is using port 8005.
+
+**Solution:** Stop the existing Tomcat first:
+```bash
+# Check what's using port 8005
+sudo lsof -i :8005
+# or
+sudo ss -tlnp | grep 8005
+
+# If it's an existing Tomcat, stop it
+sudo systemctl stop tomcat
+# or
+sudo /opt/tomcat/bin/shutdown.sh
+
+# If needed, force kill
+sudo pkill -f catalina
+```
+
+The install script will now automatically detect this condition and offer to stop existing instances.
+
+### ChronicleMap errors (InaccessibleObjectException)
+
+**Problem:** Errors related to ChronicleMap or InaccessibleObjectException in logs
+
+Error messages like:
+```
+java.lang.reflect.InaccessibleObjectException: Unable to make field ... accessible
+ChronicleMap creation failed
+```
+
+This happens because OpenGrok's suggester feature uses ChronicleMap, which requires access to internal JDK modules that are restricted by default in JDK 9+.
+
+**Solution:** The install script automatically creates `/opt/tomcat/bin/setenv.sh` with required JVM flags. If you need to add them manually:
+
+```bash
+# Edit or create /opt/tomcat/bin/setenv.sh
+sudo tee /opt/tomcat/bin/setenv.sh > /dev/null << 'EOF'
+#!/bin/sh
+# JDK 9+ module access for ChronicleMap
+export CATALINA_OPTS="$CATALINA_OPTS --add-exports=java.base/jdk.internal.ref=ALL-UNNAMED"
+export CATALINA_OPTS="$CATALINA_OPTS --add-exports=java.base/sun.nio.ch=ALL-UNNAMED"
+export CATALINA_OPTS="$CATALINA_OPTS --add-exports=jdk.unsupported/sun.misc=ALL-UNNAMED"
+export CATALINA_OPTS="$CATALINA_OPTS --add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED"
+export CATALINA_OPTS="$CATALINA_OPTS --add-opens=jdk.compiler/com.sun.tools.javac=ALL-UNNAMED"
+export CATALINA_OPTS="$CATALINA_OPTS --add-opens=java.base/java.lang=ALL-UNNAMED"
+export CATALINA_OPTS="$CATALINA_OPTS --add-opens=java.base/java.lang.reflect=ALL-UNNAMED"
+export CATALINA_OPTS="$CATALINA_OPTS --add-opens=java.base/java.io=ALL-UNNAMED"
+export CATALINA_OPTS="$CATALINA_OPTS --add-opens=java.base/java.util=ALL-UNNAMED"
+export CATALINA_OPTS="$CATALINA_OPTS --add-opens=java.base/java.nio=ALL-UNNAMED"
+export CATALINA_OPTS="$CATALINA_OPTS --add-opens=java.base/java.net=ALL-UNNAMED"
+export CATALINA_OPTS="$CATALINA_OPTS --add-opens=java.base/sun.nio.ch=ALL-UNNAMED"
+EOF
+
+sudo chmod +x /opt/tomcat/bin/setenv.sh
+sudo chown tomcat:tomcat /opt/tomcat/bin/setenv.sh
+sudo systemctl restart tomcat
+```
+
+**Note:** Do NOT use `--illegal-access=permit` as it was removed in JDK 17. Use `--add-opens` flags instead.
+
+**References:**
+- [OpenGrok Suggester Wiki](https://github.com/oracle/opengrok/wiki/Suggester)
+- [OpenGrok Discussion #4371](https://github.com/oracle/opengrok/discussions/4371)
+- [JDK 17 and illegal reflective access](https://bilalkaun.com/2024/01/14/jdk-17-and-illegal-reflective-access/)
 
 ### Indexing fails
 
@@ -342,16 +543,22 @@ Should show:
 For large codebases (>100k files):
 
 **Increase Tomcat memory:**
-```bash
-# Create/edit setenv.sh
-sudo tee /opt/tomcat/bin/setenv.sh > /dev/null << 'EOF'
-export CATALINA_OPTS="$CATALINA_OPTS -Xms512M"
-export CATALINA_OPTS="$CATALINA_OPTS -Xmx2048M"
-EOF
 
-sudo chmod +x /opt/tomcat/bin/setenv.sh
+The install script automatically creates `/opt/tomcat/bin/setenv.sh` with memory settings. To adjust:
+
+```bash
+# Edit setenv.sh to change memory allocation
+sudo nano /opt/tomcat/bin/setenv.sh
+
+# Modify these lines:
+export CATALINA_OPTS="$CATALINA_OPTS -Xms512M"    # Initial heap
+export CATALINA_OPTS="$CATALINA_OPTS -Xmx4096M"   # Maximum heap
+
+# Restart Tomcat
 sudo systemctl restart tomcat
 ```
+
+**Note:** The setenv.sh file already includes JDK 9+ compatibility flags for ChronicleMap. Don't remove the `--add-exports` and `--add-opens` lines.
 
 **Disable history indexing (faster):**
 ```bash

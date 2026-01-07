@@ -35,6 +35,7 @@ INSTALL_BASE="/opt"
 DATA_BASE="/var/opengrok"
 TOMCAT_PORT="8080"
 TOMCAT_INTERNAL_PORT="8080"  # Actual port Tomcat listens on (may differ if using port forwarding)
+TOMCAT_SHUTDOWN_PORT="8005"  # Tomcat shutdown port (must be unique per instance)
 USE_PORT_FORWARDING=false    # Set to true when port 80 requested
 PROJECT_NAME=""  # Auto-detect if not specified
 INSTALL_SYSTEMD=true
@@ -135,11 +136,15 @@ kill_port_process() {
 }
 
 # Wait for Tomcat to be ready (HTTP responding)
-# Returns 0 when ready, 1 on timeout
+# Streams log output and detects errors for faster failure
+# Returns 0 when ready, 1 on timeout or error
 wait_for_tomcat() {
     local timeout="${1:-60}"
     local url="http://localhost:${TOMCAT_INTERNAL_PORT}/"
+    local log_file="${INSTALL_BASE}/tomcat/logs/catalina.out"
     local elapsed=0
+    local last_log_line=0
+    local tail_pid=""
 
     # Check if we have a way to make HTTP requests
     if ! command -v curl &>/dev/null && ! command -v wget &>/dev/null; then
@@ -159,13 +164,63 @@ wait_for_tomcat() {
 
     log_info "Waiting for Tomcat to be ready (timeout: ${timeout}s)..."
 
+    # Start tailing the log file in background if it exists
+    if [[ -f "$log_file" ]]; then
+        last_log_line=$(wc -l < "$log_file" 2>/dev/null || echo 0)
+        log_info "Streaming Tomcat startup logs..."
+        echo "---"
+        # Tail new lines with a prefix for clarity
+        tail -n 0 -f "$log_file" 2>/dev/null &
+        tail_pid=$!
+    fi
+
+    # Cleanup function for tail process
+    cleanup_tail() {
+        if [[ -n "$tail_pid" ]] && kill -0 "$tail_pid" 2>/dev/null; then
+            kill "$tail_pid" 2>/dev/null || true
+            wait "$tail_pid" 2>/dev/null || true
+        fi
+    }
+
     while [[ $elapsed -lt $timeout ]]; do
+        # Check for fatal errors in the log
+        if [[ -f "$log_file" ]]; then
+            local new_content
+            new_content=$(tail -n +$((last_log_line + 1)) "$log_file" 2>/dev/null || true)
+
+            # Check for common fatal errors that indicate startup failure
+            if echo "$new_content" | grep -qi "SEVERE.*Cannot find.*configuration\|SEVERE.*Failed to initialize\|Address already in use\|BindException\|Error deploying web application\|SEVERE.*Exception.*starting"; then
+                echo "---"
+                log_error "Fatal error detected in Tomcat logs!"
+                cleanup_tail
+                return 1
+            fi
+
+            # Check for successful startup messages
+            if echo "$new_content" | grep -qi "Server startup in\|Catalina.start Server startup"; then
+                echo "---"
+                log_success "Tomcat startup completed (${elapsed}s)"
+                cleanup_tail
+                # Still verify HTTP is responding
+                sleep 2
+                local http_code
+                if command -v curl &>/dev/null; then
+                    http_code=$(curl -s -o /dev/null -w '%{http_code}' --connect-timeout 5 "$url" 2>/dev/null || echo "000")
+                else
+                    http_code="200"  # Assume OK if we saw startup message
+                fi
+                if [[ "$http_code" =~ ^[234][0-9]{2}$ ]]; then
+                    log_success "Tomcat is responding on port $TOMCAT_INTERNAL_PORT"
+                    return 0
+                fi
+            fi
+        fi
+
+        # Also check HTTP status
         local http_code=""
-        # Use curl if available, otherwise wget
         if command -v curl &>/dev/null; then
             http_code=$(curl -s -o /dev/null -w '%{http_code}' --connect-timeout 2 "$url" 2>/dev/null || echo "000")
         else
-            # wget returns 0 on success, 8 on server error (which is still "up")
             if wget -q --spider --timeout=2 "$url" 2>/dev/null; then
                 http_code="200"
             else
@@ -174,18 +229,27 @@ wait_for_tomcat() {
         fi
 
         if [[ "$http_code" =~ ^[234][0-9]{2}$ ]]; then
-            log_success "Tomcat is ready (${elapsed}s)"
+            echo "---"
+            log_success "Tomcat is ready (${elapsed}s, HTTP $http_code)"
+            cleanup_tail
             return 0
+        fi
+
+        # Check if Tomcat process died
+        if [[ $elapsed -gt 5 ]] && ! check_port_in_use "$TOMCAT_SHUTDOWN_PORT"; then
+            echo "---"
+            log_error "Tomcat process appears to have died (shutdown port not listening)"
+            cleanup_tail
+            return 1
         fi
 
         sleep 2
         elapsed=$((elapsed + 2))
-        if [[ $((elapsed % 10)) -eq 0 ]]; then
-            log_info "Still waiting for Tomcat... (${elapsed}s elapsed, last status: ${http_code})"
-        fi
     done
 
+    echo "---"
     log_warn "Tomcat not responding after ${timeout}s"
+    cleanup_tail
     return 1
 }
 
@@ -219,35 +283,70 @@ show_tomcat_logs() {
     fi
 }
 
+# Print the manual start command for debugging
+show_manual_start_command() {
+    echo
+    log_info "To start Tomcat manually with visible output (useful for debugging):"
+    echo "  sudo su - tomcat -s /bin/bash -c 'JAVA_HOME=${INSTALL_BASE}/java ${INSTALL_BASE}/tomcat/bin/catalina.sh run'"
+    echo
+    log_info "Or to start in background:"
+    echo "  sudo systemctl start tomcat"
+    echo "  # or"
+    echo "  sudo su - tomcat -s /bin/bash -c '${INSTALL_BASE}/tomcat/bin/startup.sh'"
+    echo
+}
+
 # Ensure Tomcat is stopped before starting
 # Handles stale processes and PID files
+# Checks both HTTP port and shutdown port
 ensure_tomcat_stopped() {
-    # Check if port is in use
-    if check_port_in_use "$TOMCAT_INTERNAL_PORT"; then
-        log_warn "Port $TOMCAT_INTERNAL_PORT is already in use"
+    local need_shutdown=false
 
+    # Check if HTTP port is in use
+    if check_port_in_use "$TOMCAT_INTERNAL_PORT"; then
+        log_warn "HTTP port $TOMCAT_INTERNAL_PORT is already in use"
+        need_shutdown=true
+    fi
+
+    # Check if shutdown port is in use (indicates running Tomcat)
+    if check_port_in_use "$TOMCAT_SHUTDOWN_PORT"; then
+        log_warn "Shutdown port $TOMCAT_SHUTDOWN_PORT is already in use"
+        need_shutdown=true
+    fi
+
+    if [[ "$need_shutdown" == true ]]; then
         # Try graceful shutdown first
         if [[ -f "${INSTALL_BASE}/tomcat/bin/shutdown.sh" ]]; then
             log_info "Attempting graceful shutdown..."
             su - tomcat -s /bin/bash -c "${INSTALL_BASE}/tomcat/bin/shutdown.sh" 2>/dev/null || true
             if wait_for_tomcat_stop 15; then
-                return 0
+                # Also wait for shutdown port to be released
+                local elapsed=0
+                while check_port_in_use "$TOMCAT_SHUTDOWN_PORT" && [[ $elapsed -lt 10 ]]; do
+                    sleep 1
+                    elapsed=$((elapsed + 1))
+                done
+                if ! check_port_in_use "$TOMCAT_INTERNAL_PORT" && ! check_port_in_use "$TOMCAT_SHUTDOWN_PORT"; then
+                    log_success "Tomcat stopped successfully"
+                    return 0
+                fi
             fi
         fi
 
         # Ask user before force-killing
-        if prompt_yes_no "Port $TOMCAT_INTERNAL_PORT still in use. Force kill the process?"; then
+        if prompt_yes_no "Tomcat ports still in use. Force kill the process?"; then
             kill_port_process "$TOMCAT_INTERNAL_PORT"
+            kill_port_process "$TOMCAT_SHUTDOWN_PORT"
             sleep 2
-            if ! check_port_in_use "$TOMCAT_INTERNAL_PORT"; then
-                log_success "Port $TOMCAT_INTERNAL_PORT is now free"
+            if ! check_port_in_use "$TOMCAT_INTERNAL_PORT" && ! check_port_in_use "$TOMCAT_SHUTDOWN_PORT"; then
+                log_success "Tomcat ports are now free"
                 return 0
             else
-                log_error "Failed to free port $TOMCAT_INTERNAL_PORT"
+                log_error "Failed to free Tomcat ports"
                 return 1
             fi
         else
-            log_error "Cannot proceed with port $TOMCAT_INTERNAL_PORT in use"
+            log_error "Cannot proceed with Tomcat ports in use"
             return 1
         fi
     fi
@@ -402,6 +501,67 @@ check_privileged_port() {
         return 0  # Is privileged
     fi
     return 1  # Not privileged
+}
+
+# Check and handle Tomcat shutdown port (8005 by default)
+# Returns 0 on success (port is free or was freed), 1 on failure
+check_shutdown_port() {
+    local port="$1"
+
+    if ! check_port_in_use "$port"; then
+        return 0  # Port is free
+    fi
+
+    log_warn "Tomcat shutdown port $port is already in use"
+
+    # Try to identify what's using it
+    local process_info=""
+    if command -v lsof &>/dev/null; then
+        process_info=$(lsof -i ":${port}" -sTCP:LISTEN 2>/dev/null | tail -n +2 || true)
+    elif command -v ss &>/dev/null; then
+        process_info=$(ss -tlnp 2>/dev/null | grep ":${port} " || true)
+    fi
+
+    if [[ -n "$process_info" ]]; then
+        log_info "Process using port $port:"
+        echo "$process_info"
+    fi
+
+    # Check if it's likely an existing Tomcat
+    if echo "$process_info" | grep -qi "java\|tomcat\|catalina"; then
+        log_info "This appears to be an existing Tomcat instance"
+
+        # Try graceful shutdown via existing shutdown.sh if available
+        if [[ -f "${INSTALL_BASE}/tomcat/bin/shutdown.sh" ]]; then
+            if prompt_yes_no "Attempt graceful shutdown of existing Tomcat?"; then
+                log_info "Attempting graceful shutdown..."
+                su - tomcat -s /bin/bash -c "${INSTALL_BASE}/tomcat/bin/shutdown.sh" 2>/dev/null || \
+                    "${INSTALL_BASE}/tomcat/bin/shutdown.sh" 2>/dev/null || true
+                sleep 5
+                if ! check_port_in_use "$port"; then
+                    log_success "Existing Tomcat stopped successfully"
+                    return 0
+                fi
+            fi
+        fi
+    fi
+
+    # Offer to force-kill the process
+    if prompt_yes_no "Force kill the process using shutdown port $port?"; then
+        kill_port_process "$port"
+        sleep 2
+        if ! check_port_in_use "$port"; then
+            log_success "Shutdown port $port is now free"
+            return 0
+        else
+            log_error "Failed to free shutdown port $port"
+            return 1
+        fi
+    fi
+
+    log_error "Cannot proceed with shutdown port $port in use"
+    log_error "Another Tomcat instance may be running. Stop it first or use a different shutdown port."
+    return 1
 }
 
 show_help() {
@@ -731,6 +891,49 @@ install_tomcat() {
         log_info "Configured Tomcat internal port: $TOMCAT_INTERNAL_PORT"
     fi
 
+    # Create setenv.sh with JDK 9+ compatibility flags for ChronicleMap
+    # ChronicleMap (used by OpenGrok suggester) requires these exports on JDK 9+
+    log_info "Configuring JVM options for JDK 9+ compatibility..."
+    cat > "${INSTALL_BASE}/tomcat/bin/setenv.sh" << 'EOF'
+#!/bin/sh
+# JVM options for OpenGrok with JDK 11/17/21+
+# ChronicleMap requires access to internal JDK modules
+# See: https://github.com/oracle/opengrok/wiki/Suggester
+
+# Memory settings (adjust as needed for your codebase size)
+export CATALINA_OPTS="$CATALINA_OPTS -Xms256M -Xmx2048M"
+
+# JDK 9+ module exports for ChronicleMap (OpenGrok suggester feature)
+# These --add-exports flags allow access to internal APIs
+export CATALINA_OPTS="$CATALINA_OPTS --add-exports=java.base/jdk.internal.ref=ALL-UNNAMED"
+export CATALINA_OPTS="$CATALINA_OPTS --add-exports=java.base/sun.nio.ch=ALL-UNNAMED"
+export CATALINA_OPTS="$CATALINA_OPTS --add-exports=jdk.unsupported/sun.misc=ALL-UNNAMED"
+export CATALINA_OPTS="$CATALINA_OPTS --add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED"
+
+# JDK 9+ module opens for reflective access (prevents InaccessibleObjectException)
+# These --add-opens flags allow deep reflection into core Java classes
+export CATALINA_OPTS="$CATALINA_OPTS --add-opens=jdk.compiler/com.sun.tools.javac=ALL-UNNAMED"
+export CATALINA_OPTS="$CATALINA_OPTS --add-opens=java.base/java.lang=ALL-UNNAMED"
+export CATALINA_OPTS="$CATALINA_OPTS --add-opens=java.base/java.lang.reflect=ALL-UNNAMED"
+export CATALINA_OPTS="$CATALINA_OPTS --add-opens=java.base/java.io=ALL-UNNAMED"
+export CATALINA_OPTS="$CATALINA_OPTS --add-opens=java.base/java.util=ALL-UNNAMED"
+export CATALINA_OPTS="$CATALINA_OPTS --add-opens=java.base/java.nio=ALL-UNNAMED"
+export CATALINA_OPTS="$CATALINA_OPTS --add-opens=java.base/java.net=ALL-UNNAMED"
+export CATALINA_OPTS="$CATALINA_OPTS --add-opens=java.base/java.security=ALL-UNNAMED"
+export CATALINA_OPTS="$CATALINA_OPTS --add-opens=java.base/sun.nio.ch=ALL-UNNAMED"
+export CATALINA_OPTS="$CATALINA_OPTS --add-opens=java.base/sun.security.ssl=ALL-UNNAMED"
+
+# File encoding
+export CATALINA_OPTS="$CATALINA_OPTS -Dfile.encoding=UTF-8"
+
+# Note: Do NOT use --illegal-access=permit as it was removed in JDK 17
+# The --add-opens flags above provide the correct alternative
+EOF
+
+    chmod +x "${INSTALL_BASE}/tomcat/bin/setenv.sh"
+    chown tomcat:tomcat "${INSTALL_BASE}/tomcat/bin/setenv.sh"
+    log_success "Created setenv.sh with JDK 9+ compatibility flags"
+
     log_success "Tomcat installed successfully"
     return 0
 }
@@ -938,6 +1141,10 @@ run_indexer() {
 install_systemd_service() {
     log_info "Creating systemd service..."
 
+    # Ensure temp directory exists and has correct permissions
+    mkdir -p "${INSTALL_BASE}/tomcat/temp"
+    chown -R tomcat:tomcat "${INSTALL_BASE}/tomcat/temp"
+
     cat > /etc/systemd/system/tomcat.service << EOF
 [Unit]
 Description=Apache Tomcat Web Application Container for OpenGrok
@@ -968,6 +1175,9 @@ UMask=0007
 RestartSec=10
 Restart=on-failure
 
+# Security: Run service in private /tmp
+PrivateTmp=true
+
 [Install]
 WantedBy=multi-user.target
 EOF
@@ -988,6 +1198,7 @@ start_opengrok() {
     # Ensure no stale Tomcat is running first
     ensure_tomcat_stopped || {
         log_error "Cannot start OpenGrok - failed to stop existing Tomcat"
+        show_manual_start_command
         return 1
     }
 
@@ -1000,6 +1211,7 @@ start_opengrok() {
                 log_error "systemctl start tomcat failed"
                 journalctl -u tomcat -n 30 --no-pager 2>/dev/null || true
                 show_tomcat_logs
+                show_manual_start_command
                 return 1
             fi
 
@@ -1011,6 +1223,7 @@ start_opengrok() {
                 log_error "Failed to start via systemd - Tomcat not responding"
                 journalctl -u tomcat -n 30 --no-pager 2>/dev/null || true
                 show_tomcat_logs
+                show_manual_start_command
                 return 1
             fi
         fi
@@ -1021,6 +1234,7 @@ start_opengrok() {
     if ! su - tomcat -s /bin/bash -c "${INSTALL_BASE}/tomcat/bin/startup.sh" 2>&1; then
         log_error "Failed to execute startup.sh"
         show_tomcat_logs
+        show_manual_start_command
         return 1
     fi
 
@@ -1031,6 +1245,7 @@ start_opengrok() {
     else
         log_error "Tomcat failed to become ready"
         show_tomcat_logs
+        show_manual_start_command
         return 1
     fi
 }
@@ -1073,6 +1288,9 @@ print_summary() {
         echo "  Stop:     sudo su - tomcat -s /bin/bash -c '${INSTALL_BASE}/tomcat/bin/shutdown.sh'"
         echo "  Logs:     tail -f ${INSTALL_BASE}/tomcat/logs/catalina.out"
     fi
+    echo
+    echo "Manual start (foreground, useful for debugging):"
+    echo "  sudo su - tomcat -s /bin/bash -c 'JAVA_HOME=${INSTALL_BASE}/java ${INSTALL_BASE}/tomcat/bin/catalina.sh run'"
     echo
     echo "Re-index source code:"
     local memory_example="${INDEXER_MEMORY_MB}"
@@ -1244,6 +1462,11 @@ main() {
             log_error "Port $TOMCAT_PORT must be free for port forwarding to work"
             exit 1
         fi
+    fi
+
+    # Check if Tomcat shutdown port is in use (critical - causes startup failure)
+    if ! check_shutdown_port "$TOMCAT_SHUTDOWN_PORT"; then
+        exit 1
     fi
 
     # Check disk space (require 2GB for installation)
