@@ -1,0 +1,754 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OpenGrok Annotation Styles - Mockup</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #1e1e1e;
+      color: #d4d4d4;
+      padding: 20px;
+      margin: 0;
+    }
+
+    h1 {
+      color: #007acc;
+      border-bottom: 2px solid #007acc;
+      padding-bottom: 10px;
+    }
+
+    h2 {
+      color: #9cdcfe;
+      margin-top: 40px;
+    }
+
+    .description {
+      color: #888;
+      font-size: 14px;
+      margin-bottom: 20px;
+      padding: 12px;
+      background: #252526;
+      border-radius: 6px;
+      border-left: 3px solid #007acc;
+    }
+
+    /* Simulated OpenGrok source code view */
+    .source-container {
+      background: #252526;
+      border: 1px solid #3c3c3c;
+      border-radius: 8px;
+      overflow: hidden;
+      margin-bottom: 40px;
+    }
+
+    .source-header {
+      background: linear-gradient(135deg, #007acc 0%, #005a9e 100%);
+      color: white;
+      padding: 10px 16px;
+      font-weight: 600;
+      font-size: 13px;
+    }
+
+    .source-line {
+      display: flex;
+      font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+      font-size: 13px;
+      line-height: 1.5;
+      border-bottom: 1px solid #2d2d2d;
+    }
+
+    .source-line:hover {
+      background: #2a2d2e;
+    }
+
+    .line-num {
+      width: 50px;
+      padding: 4px 12px 4px 8px;
+      text-align: right;
+      color: #858585;
+      background: #1e1e1e;
+      border-right: 1px solid #3c3c3c;
+      user-select: none;
+      flex-shrink: 0;
+    }
+
+    .line-num.has-annotation {
+      position: relative;
+    }
+
+    .annotation-indicator {
+      position: absolute;
+      right: 4px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 10px;
+      cursor: pointer;
+    }
+
+    .line-code {
+      padding: 4px 12px;
+      flex: 1;
+      white-space: pre;
+      overflow-x: auto;
+    }
+
+    /* Syntax highlighting simulation */
+    .kw { color: #569cd6; }
+    .fn { color: #dcdcaa; }
+    .str { color: #ce9178; }
+    .cm { color: #6a9955; }
+    .num { color: #b5cea8; }
+    .var { color: #9cdcfe; }
+
+    /* Add annotation button (shown on hover) */
+    .add-annotation-btn {
+      opacity: 0;
+      transition: opacity 0.15s;
+      margin-left: 8px;
+      background: #007acc;
+      color: white;
+      border: none;
+      border-radius: 3px;
+      padding: 2px 6px;
+      font-size: 11px;
+      cursor: pointer;
+    }
+
+    .source-line:hover .add-annotation-btn {
+      opacity: 1;
+    }
+
+    /* ============================================
+       STYLE A: Minimal Inline (GitHub-style)
+       ============================================ */
+    .annotation-style-a {
+      margin: 0;
+      padding: 12px 12px 12px 62px;
+      background: linear-gradient(90deg, #1a3a1a 0%, #1e2d1e 100%);
+      border-left: 3px solid #4caf50;
+      font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+      font-size: 13px;
+    }
+
+    .annotation-style-a .annotation-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 6px;
+      font-size: 11px;
+    }
+
+    .annotation-style-a .annotation-author {
+      color: #4caf50;
+      font-weight: 600;
+    }
+
+    .annotation-style-a .annotation-time {
+      color: #666;
+    }
+
+    .annotation-style-a .annotation-body {
+      color: #b0d9b0;
+      line-height: 1.6;
+      white-space: pre-wrap;
+    }
+
+    .annotation-style-a .annotation-actions {
+      margin-top: 8px;
+      display: flex;
+      gap: 8px;
+    }
+
+    .annotation-style-a .annotation-actions button {
+      background: transparent;
+      border: 1px solid #4caf50;
+      color: #4caf50;
+      padding: 3px 10px;
+      border-radius: 4px;
+      font-size: 11px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .annotation-style-a .annotation-actions button:hover {
+      background: #4caf50;
+      color: #1a3a1a;
+    }
+
+    .annotation-style-a .annotation-actions button.delete:hover {
+      background: #f44336;
+      border-color: #f44336;
+      color: white;
+    }
+
+    /* ============================================
+       STYLE B: Card/Bubble (Slack-style)
+       ============================================ */
+    .annotation-style-b {
+      margin: 8px 12px 8px 62px;
+      padding: 0;
+      background: #2d2d30;
+      border-radius: 8px;
+      border: 1px solid #3c3c3c;
+      overflow: hidden;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    }
+
+    .annotation-style-b .annotation-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 14px;
+      background: #333337;
+      border-bottom: 1px solid #3c3c3c;
+    }
+
+    .annotation-style-b .annotation-meta {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .annotation-style-b .annotation-avatar {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #007acc 0%, #005a9e 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 600;
+      color: white;
+    }
+
+    .annotation-style-b .annotation-author {
+      color: #007acc;
+      font-weight: 600;
+      font-size: 13px;
+    }
+
+    .annotation-style-b .annotation-time {
+      color: #666;
+      font-size: 11px;
+    }
+
+    .annotation-style-b .annotation-actions {
+      display: flex;
+      gap: 4px;
+    }
+
+    .annotation-style-b .annotation-actions button {
+      background: transparent;
+      border: none;
+      color: #888;
+      padding: 4px 8px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 12px;
+      transition: all 0.15s;
+    }
+
+    .annotation-style-b .annotation-actions button:hover {
+      background: #3c3c3c;
+      color: #d4d4d4;
+    }
+
+    .annotation-style-b .annotation-actions button.delete:hover {
+      color: #f44336;
+    }
+
+    .annotation-style-b .annotation-body {
+      padding: 14px;
+      font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+      font-size: 13px;
+      color: #d4d4d4;
+      line-height: 1.6;
+      white-space: pre-wrap;
+    }
+
+    /* ============================================
+       STYLE C: Margin Note (Book-style)
+       ============================================ */
+    .source-line-with-margin {
+      display: flex;
+      position: relative;
+    }
+
+    .source-line-with-margin .source-line {
+      flex: 1;
+      border-bottom: none;
+    }
+
+    .annotation-style-c {
+      width: 320px;
+      flex-shrink: 0;
+      padding: 8px 12px;
+      background: #2a2a2a;
+      border-left: 2px solid #ffc107;
+      font-size: 12px;
+      position: relative;
+    }
+
+    .annotation-style-c::before {
+      content: '';
+      position: absolute;
+      left: -8px;
+      top: 12px;
+      width: 0;
+      height: 0;
+      border-top: 6px solid transparent;
+      border-bottom: 6px solid transparent;
+      border-right: 6px solid #ffc107;
+    }
+
+    .annotation-style-c .annotation-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 6px;
+    }
+
+    .annotation-style-c .annotation-author {
+      color: #ffc107;
+      font-weight: 600;
+      font-size: 11px;
+    }
+
+    .annotation-style-c .annotation-actions {
+      display: flex;
+      gap: 4px;
+    }
+
+    .annotation-style-c .annotation-actions button {
+      background: transparent;
+      border: none;
+      color: #666;
+      padding: 2px 4px;
+      cursor: pointer;
+      font-size: 10px;
+    }
+
+    .annotation-style-c .annotation-actions button:hover {
+      color: #d4d4d4;
+    }
+
+    .annotation-style-c .annotation-body {
+      color: #ccc;
+      line-height: 1.5;
+      font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+    }
+
+    /* Editor styles (shared) */
+    .annotation-editor {
+      margin: 8px 12px 8px 62px;
+      padding: 12px;
+      background: #1e3a5f;
+      border: 2px solid #007acc;
+      border-radius: 8px;
+    }
+
+    .annotation-editor .editor-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 10px;
+      color: #007acc;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .annotation-editor textarea {
+      width: 100%;
+      min-height: 80px;
+      padding: 10px;
+      background: #252526;
+      border: 1px solid #3c3c3c;
+      border-radius: 4px;
+      color: #d4d4d4;
+      font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+      font-size: 13px;
+      resize: vertical;
+      outline: none;
+    }
+
+    .annotation-editor textarea:focus {
+      border-color: #007acc;
+    }
+
+    .annotation-editor .editor-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .annotation-editor .editor-actions button {
+      padding: 6px 16px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .annotation-editor .btn-save {
+      background: #007acc;
+      border: none;
+      color: white;
+    }
+
+    .annotation-editor .btn-save:hover {
+      background: #005a9e;
+    }
+
+    .annotation-editor .btn-discard {
+      background: transparent;
+      border: 1px solid #666;
+      color: #999;
+    }
+
+    .annotation-editor .btn-discard:hover {
+      border-color: #999;
+      color: #d4d4d4;
+    }
+
+    /* Eyes indicator */
+    .edit-indicator {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 6px;
+      background: #4a3f00;
+      border-radius: 4px;
+      font-size: 11px;
+      color: #ffc107;
+      cursor: help;
+    }
+
+    /* Vote section */
+    .vote-panel {
+      background: #252526;
+      border: 1px solid #3c3c3c;
+      border-radius: 8px;
+      padding: 20px;
+      margin-top: 40px;
+    }
+
+    .vote-panel h3 {
+      color: #007acc;
+      margin-top: 0;
+    }
+
+    .vote-options {
+      display: flex;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+
+    .vote-option {
+      flex: 1;
+      min-width: 200px;
+      padding: 16px;
+      background: #2d2d30;
+      border: 2px solid #3c3c3c;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .vote-option:hover {
+      border-color: #007acc;
+      background: #333337;
+    }
+
+    .vote-option h4 {
+      margin: 0 0 8px 0;
+      color: #d4d4d4;
+    }
+
+    .vote-option p {
+      margin: 0;
+      font-size: 12px;
+      color: #888;
+    }
+  </style>
+</head>
+<body>
+  <h1>OpenGrok Annotation Styles</h1>
+  <p style="color: #888;">Three style options for inline annotations. Click anywhere to see how each would look in context.</p>
+
+  <!-- ============================================
+       STYLE A: Minimal Inline
+       ============================================ -->
+  <h2>Style A: Minimal Inline (GitHub PR comment style)</h2>
+  <div class="description">
+    <strong>Pros:</strong> Compact, unobtrusive, familiar to GitHub users<br>
+    <strong>Cons:</strong> Less visually distinct, might be missed when scanning
+  </div>
+
+  <div class="source-container">
+    <div class="source-header">src/services/DataProcessor.java</div>
+
+    <div class="source-line">
+      <div class="line-num">40</div>
+      <div class="line-code">    <span class="cm">// Process incoming data stream</span></div>
+    </div>
+
+    <div class="source-line">
+      <div class="line-num has-annotation">41 <span class="annotation-indicator">💬</span></div>
+      <div class="line-code">    <span class="kw">public void</span> <span class="fn">processData</span>(<span class="var">DataStream</span> input) {</div>
+    </div>
+
+    <!-- Style A annotation -->
+    <div class="annotation-style-a">
+      <div class="annotation-header">
+        <span class="annotation-author">alan</span>
+        <span class="annotation-time">• 2 hours ago</span>
+      </div>
+      <div class="annotation-body">This function is doing too much - validation, transformation, AND persistence.
+Consider splitting into separate concerns:
+  • validateInput(input)
+  • transformData(validated)
+  • persistResult(transformed)</div>
+      <div class="annotation-actions">
+        <button>✏️ Edit</button>
+        <button class="delete">🗑️ Delete</button>
+      </div>
+    </div>
+
+    <div class="source-line">
+      <div class="line-num">42</div>
+      <div class="line-code">        <span class="kw">if</span> (input == <span class="kw">null</span>) {</div>
+    </div>
+
+    <div class="source-line">
+      <div class="line-num">43</div>
+      <div class="line-code">            <span class="kw">throw new</span> <span class="var">IllegalArgumentException</span>(<span class="str">"Input cannot be null"</span>);</div>
+    </div>
+
+    <div class="source-line">
+      <div class="line-num">44</div>
+      <div class="line-code">        }</div>
+    </div>
+  </div>
+
+  <!-- ============================================
+       STYLE B: Card/Bubble
+       ============================================ -->
+  <h2>Style B: Card/Bubble (Slack/Discord style)</h2>
+  <div class="description">
+    <strong>Pros:</strong> Highly visible, clear author attribution, feels modern<br>
+    <strong>Cons:</strong> Takes more vertical space, might feel heavy with many annotations
+  </div>
+
+  <div class="source-container">
+    <div class="source-header">src/services/DataProcessor.java</div>
+
+    <div class="source-line">
+      <div class="line-num">40</div>
+      <div class="line-code">    <span class="cm">// Process incoming data stream</span></div>
+    </div>
+
+    <div class="source-line">
+      <div class="line-num has-annotation">41 <span class="annotation-indicator">💬</span></div>
+      <div class="line-code">    <span class="kw">public void</span> <span class="fn">processData</span>(<span class="var">DataStream</span> input) {</div>
+    </div>
+
+    <!-- Style B annotation -->
+    <div class="annotation-style-b">
+      <div class="annotation-header">
+        <div class="annotation-meta">
+          <div class="annotation-avatar">A</div>
+          <div>
+            <div class="annotation-author">alan</div>
+            <div class="annotation-time">2 hours ago</div>
+          </div>
+        </div>
+        <div class="annotation-actions">
+          <button>✏️</button>
+          <button class="delete">🗑️</button>
+        </div>
+      </div>
+      <div class="annotation-body">This function is doing too much - validation, transformation, AND persistence.
+Consider splitting into separate concerns:
+  • validateInput(input)
+  • transformData(validated)
+  • persistResult(transformed)</div>
+    </div>
+
+    <div class="source-line">
+      <div class="line-num">42</div>
+      <div class="line-code">        <span class="kw">if</span> (input == <span class="kw">null</span>) {</div>
+    </div>
+
+    <div class="source-line">
+      <div class="line-num">43</div>
+      <div class="line-code">            <span class="kw">throw new</span> <span class="var">IllegalArgumentException</span>(<span class="str">"Input cannot be null"</span>);</div>
+    </div>
+
+    <div class="source-line">
+      <div class="line-num">44</div>
+      <div class="line-code">        }</div>
+    </div>
+  </div>
+
+  <!-- ============================================
+       STYLE C: Margin Note
+       ============================================ -->
+  <h2>Style C: Margin Note (Book/Academic style)</h2>
+  <div class="description">
+    <strong>Pros:</strong> Doesn't interrupt code flow, can see code and annotation side-by-side<br>
+    <strong>Cons:</strong> Requires wider viewport, limited space for long annotations, complex layout
+  </div>
+
+  <div class="source-container">
+    <div class="source-header">src/services/DataProcessor.java</div>
+
+    <div class="source-line">
+      <div class="line-num">40</div>
+      <div class="line-code">    <span class="cm">// Process incoming data stream</span></div>
+    </div>
+
+    <div class="source-line-with-margin">
+      <div class="source-line" style="flex: 1;">
+        <div class="line-num has-annotation">41 <span class="annotation-indicator">💬</span></div>
+        <div class="line-code">    <span class="kw">public void</span> <span class="fn">processData</span>(<span class="var">DataStream</span> input) {</div>
+      </div>
+      <!-- Style C annotation -->
+      <div class="annotation-style-c">
+        <div class="annotation-header">
+          <span class="annotation-author">alan</span>
+          <div class="annotation-actions">
+            <button>✏️</button>
+            <button>🗑️</button>
+          </div>
+        </div>
+        <div class="annotation-body">Function doing too much. Split into validate, transform, persist.</div>
+      </div>
+    </div>
+
+    <div class="source-line">
+      <div class="line-num">42</div>
+      <div class="line-code">        <span class="kw">if</span> (input == <span class="kw">null</span>) {</div>
+    </div>
+
+    <div class="source-line">
+      <div class="line-num">43</div>
+      <div class="line-code">            <span class="kw">throw new</span> <span class="var">IllegalArgumentException</span>(<span class="str">"Input cannot be null"</span>);</div>
+    </div>
+
+    <div class="source-line">
+      <div class="line-num">44</div>
+      <div class="line-code">        }</div>
+    </div>
+  </div>
+
+  <!-- ============================================
+       EDITOR EXAMPLE
+       ============================================ -->
+  <h2>Editor Mode (with ✏️ indicator)</h2>
+  <div class="description">
+    When editing an annotation, other users see the ✏️ indicator. This is shared across all styles.
+  </div>
+
+  <div class="source-container">
+    <div class="source-header">src/services/DataProcessor.java</div>
+
+    <div class="source-line">
+      <div class="line-num">40</div>
+      <div class="line-code">    <span class="cm">// Process incoming data stream</span></div>
+    </div>
+
+    <div class="source-line">
+      <div class="line-num has-annotation">41 <span class="annotation-indicator">💬</span></div>
+      <div class="line-code">    <span class="kw">public void</span> <span class="fn">processData</span>(<span class="var">DataStream</span> input) {</div>
+    </div>
+
+    <!-- Editor -->
+    <div class="annotation-editor">
+      <div class="editor-header">
+        <span>✏️ Editing as: alan</span>
+        <span class="edit-indicator" title="bob is also viewing this annotation">✏️ bob</span>
+      </div>
+      <textarea>This function is doing too much - validation, transformation, AND persistence.
+Consider splitting into separate concerns:
+  • validateInput(input)
+  • transformData(validated)
+  • persistResult(transformed)</textarea>
+      <div class="editor-actions">
+        <button class="btn-discard">Discard (Esc)</button>
+        <button class="btn-save">Save (Ctrl+Enter)</button>
+      </div>
+    </div>
+
+    <div class="source-line">
+      <div class="line-num">42</div>
+      <div class="line-code">        <span class="kw">if</span> (input == <span class="kw">null</span>) {</div>
+    </div>
+  </div>
+
+  <!-- ============================================
+       HIDDEN ANNOTATIONS STATE
+       ============================================ -->
+  <h2>Annotations Hidden (Toggle Off)</h2>
+  <div class="description">
+    When toggle is OFF, annotations are hidden but lines with annotations show a subtle indicator.
+  </div>
+
+  <div class="source-container">
+    <div class="source-header">src/services/DataProcessor.java</div>
+
+    <div class="source-line">
+      <div class="line-num">40</div>
+      <div class="line-code">    <span class="cm">// Process incoming data stream</span></div>
+    </div>
+
+    <div class="source-line">
+      <div class="line-num has-annotation">41 <span class="annotation-indicator" title="1 annotation - click to show">💬</span></div>
+      <div class="line-code">    <span class="kw">public void</span> <span class="fn">processData</span>(<span class="var">DataStream</span> input) {</div>
+    </div>
+
+    <div class="source-line">
+      <div class="line-num">42</div>
+      <div class="line-code">        <span class="kw">if</span> (input == <span class="kw">null</span>) {</div>
+    </div>
+
+    <div class="source-line">
+      <div class="line-num">43</div>
+      <div class="line-code">            <span class="kw">throw new</span> <span class="var">IllegalArgumentException</span>(<span class="str">"Input cannot be null"</span>);</div>
+    </div>
+
+    <div class="source-line">
+      <div class="line-num has-annotation">87 <span class="annotation-indicator" title="1 annotation - click to show">💬</span></div>
+      <div class="line-code">        <span class="kw">return</span> result.<span class="fn">build</span>();</div>
+    </div>
+  </div>
+
+  <!-- Comparison summary -->
+  <div class="vote-panel">
+    <h3>Quick Comparison</h3>
+    <div class="vote-options">
+      <div class="vote-option">
+        <h4>A: Minimal Inline</h4>
+        <p>Compact, subtle green highlight, GitHub-inspired. Best for: dense codebases, experienced users.</p>
+      </div>
+      <div class="vote-option">
+        <h4>B: Card/Bubble</h4>
+        <p>Prominent cards with avatars, modern feel. Best for: collaborative teams, discoverable annotations.</p>
+      </div>
+      <div class="vote-option">
+        <h4>C: Margin Note</h4>
+        <p>Side-by-side view, doesn't break code flow. Best for: wide monitors, brief annotations.</p>
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>

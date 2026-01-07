@@ -2,7 +2,7 @@
 
 Bidirectional VS Code ↔ OpenGrok integration via extensions and CLI tool.
 
-**Current Version:** v1.3.0
+**Current Version:** v1.4.0
 
 ## Components
 
@@ -13,13 +13,19 @@ Bidirectional VS Code ↔ OpenGrok integration via extensions and CLI tool.
 ### Chrome Extension (`chrome-extension/`)
 - Ctrl+Click line numbers to open in VS Code via `vscode://` protocol
 - Floating button, hover preview, context menu, keyboard shortcuts
-- Key files: [content.js](chrome-extension/content.js), [background.js](chrome-extension/background.js)
+- **Inline annotations** for source code (new in v1.4.0)
+- Key files: [content.js](chrome-extension/content.js), [background.js](chrome-extension/background.js), [annotations.js](chrome-extension/annotations.js)
 
 ### og CLI Tool (`og/`)
 - Command-line OpenGrok search client written in Go
 - Search types: full, def, symbol, path, hist
 - Call graph tracing with `trace` command
 - Key files: [main.go](og/main.go), [client.go](og/client.go), [trace.go](og/trace.go)
+
+### og_annotate Native Host (`og_annotate/`)
+- Native messaging host for Chrome annotation storage
+- Reads/writes markdown annotation files to local/network drives
+- Key files: [main.go](og_annotate/main.go), [annotations.go](og_annotate/annotations.go)
 
 ## Architecture
 
@@ -54,16 +60,37 @@ Bidirectional VS Code ↔ OpenGrok integration via extensions and CLI tool.
 
 **REST API Migration**: Prefers REST API v1 (clean JSON), falls back to HTML for older OpenGrok
 
+## Annotations Feature
+
+**Architecture**: Chrome extension ↔ background.js ↔ og_annotate (native host) ↔ filesystem
+
+**Storage Format**: Markdown files with double-underscore path encoding
+- `project__src__file.java.md` for `project/src/file.java`
+- Escape `__` in names as `___`
+
+**Key Components**:
+- `annotations.js`: AnnotationManager class, UI rendering, polling
+- `annotations.css`: Margin note style with yellow accent
+- `og_annotate/`: Go native host for file I/O
+
+**Settings** (Options page):
+- Storage path (local: `chrome.storage.local`)
+- Author name, poll interval (synced: `chrome.storage.sync`)
+
+**Keyboard Shortcuts** (Chrome extension):
+- `t`: Quick file finder
+- `c`: Create annotation at current line
+- `x`: Jump to next annotation (wraps around)
+
 ## Build
 
 **All**: `make dist` (builds everything and creates distribution zip)
 
 **VS Code**: `make build-vscode` or `cd vscode-extension && npm install && npm run compile`
-**Chrome**: `make build-chrome` (no compile needed - just zips)
+**Chrome**: `make build-chrome` (zips extension files)
 **og CLI**: `make build-og` or `cd og && go build -o og .`
-**og dist**: `make dist-og` (source + binary zip)
-**scripts dist**: `make dist-scripts` (VM setup scripts zip)
-**og tests**: `make test-og` or `cd og && go test -v ./...`
+**og_annotate**: `make build-og-annotate` or `cd og_annotate && go build -o og_annotate .`
+**Tests**: `make test` (runs all tests) or `make test-og-annotate`
 
 ## OpenGrok Installer Scripts (`scripts/`)
 

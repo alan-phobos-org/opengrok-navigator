@@ -1,23 +1,24 @@
 {
   "manifest_version": 3,
   "name": "OpenGrok to VS Code",
-  "version": "1.3.0",
-  "description": "Open OpenGrok files in VS Code with one click",
+  "version": "1.4.0",
+  "description": "Open OpenGrok files in VS Code with one click, plus inline annotations",
   "permissions": [
     "activeTab",
     "storage",
-    "contextMenus"
+    "contextMenus",
+    "nativeMessaging"
   ],
   "content_scripts": [
     {
       "matches": ["*://*/source/xref/*", "*://*/source/", "*://*/source", "*://*/source/search*"],
       "js": ["dark-mode-init.js"],
-      "css": ["content.css", "dark-theme.css"],
+      "css": ["content.css", "dark-theme.css", "annotations.css"],
       "run_at": "document_start"
     },
     {
       "matches": ["*://*/source/xref/*", "*://*/source/", "*://*/source", "*://*/source/search*"],
-      "js": ["content.js"],
+      "js": ["content.js", "annotations.js"],
       "run_at": "document_idle"
     }
   ],

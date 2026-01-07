@@ -115,8 +115,8 @@ function hidePreview() {
 
 // Add UI enhancements
 function enhanceUI() {
-  // Enhance line numbers on file pages (a.l)
-  const lineNumbers = document.querySelectorAll('a.l');
+  // Enhance line numbers on file pages (a.l for regular, a.hl for highlighted every 10th)
+  const lineNumbers = document.querySelectorAll('a.l, a.hl');
 
   lineNumbers.forEach(anchor => {
     anchor.title = 'Ctrl+Click to open in VS Code';
@@ -129,23 +129,6 @@ function enhanceUI() {
         const lineNum = anchor.textContent.trim();
         openInVSCode(lineNum);
       }
-    });
-
-    // Hover preview
-    anchor.addEventListener('mouseenter', () => {
-      isMouseOverAnchor = true;
-      const lineNum = anchor.textContent.trim();
-      hoverTimeout = setTimeout(() => {
-        createPreview(anchor, lineNum);
-      }, 500); // 500ms delay
-    });
-
-    anchor.addEventListener('mouseleave', () => {
-      isMouseOverAnchor = false;
-      clearTimeout(hoverTimeout);
-      hoverTimeout = setTimeout(() => {
-        hidePreview();
-      }, 300);
     });
   });
 
@@ -172,27 +155,11 @@ function enhanceUI() {
         openInVSCodeWithParams(linkInfo.project, linkInfo.filePath, linkInfo.lineNumber);
       }
     });
-
-    // Hover preview on the line number span
-    lineSpan.addEventListener('mouseenter', () => {
-      isMouseOverAnchor = true;
-      hoverTimeout = setTimeout(() => {
-        createPreview(lineSpan, linkInfo.lineNumber, linkInfo.project, linkInfo.filePath);
-      }, 500);
-    });
-
-    lineSpan.addEventListener('mouseleave', () => {
-      isMouseOverAnchor = false;
-      clearTimeout(hoverTimeout);
-      hoverTimeout = setTimeout(() => {
-        hidePreview();
-      }, 300);
-    });
   });
 
   // Check if this is a file page (not a directory listing)
-  // A file page has line numbers (a.l elements) AND doesn't have a directory listing table
-  const hasLineNumbers = document.querySelector('a.l') !== null;
+  // A file page has line numbers (a.l or a.hl elements) AND doesn't have a directory listing table
+  const hasLineNumbers = document.querySelector('a.l, a.hl') !== null;
   const hasDirectoryListing = document.querySelector('table.directory, table#dirlist, .directory-list') !== null;
   const isFilePage = hasLineNumbers && !hasDirectoryListing;
 
@@ -260,6 +227,20 @@ function handleKeyboardShortcuts(e) {
   if (e.key === 't' && !isInInputField(e.target)) {
     e.preventDefault();
     openFileFinder();
+  }
+  // 'c' key to create annotation at current line
+  if (e.key === 'c' && !isInInputField(e.target)) {
+    e.preventDefault();
+    if (window.annotationManager) {
+      window.annotationManager.addAnnotationAtCursor();
+    }
+  }
+  // 'x' key to jump to next annotation
+  if (e.key === 'x' && !isInInputField(e.target)) {
+    e.preventDefault();
+    if (window.annotationManager) {
+      window.annotationManager.jumpToNextAnnotation();
+    }
   }
   // ESC to close file finder
   if (e.key === 'Escape' && fileFinderModal) {
@@ -707,6 +688,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     sendResponse({ success: true });
   } else if (message.action === 'openInVSCode') {
     openInVSCode(message.lineNumber);
+    sendResponse({ success: true });
+  } else if (message.action === 'addAnnotationAtCursor') {
+    // Forward to annotation manager if it exists
+    if (window.annotationManager) {
+      window.annotationManager.addAnnotationAtCursor();
+    }
     sendResponse({ success: true });
   }
   return true;

@@ -7,6 +7,88 @@ async function getConfig() {
   return result;
 }
 
+// Native messaging host name
+const NATIVE_HOST = 'og_annotate';
+
+// Send message to native host and return response
+async function sendNativeMessage(message) {
+  return new Promise((resolve, reject) => {
+    try {
+      chrome.runtime.sendNativeMessage(NATIVE_HOST, message, (response) => {
+        if (chrome.runtime.lastError) {
+          reject(new Error(chrome.runtime.lastError.message));
+        } else {
+          resolve(response);
+        }
+      });
+    } catch (err) {
+      reject(err);
+    }
+  });
+}
+
+// Annotation API functions
+async function readAnnotations(storagePath, project, filePath) {
+  return sendNativeMessage({
+    action: 'read',
+    storagePath,
+    project,
+    filePath
+  });
+}
+
+async function saveAnnotation(storagePath, project, filePath, line, author, text, context) {
+  return sendNativeMessage({
+    action: 'save',
+    storagePath,
+    project,
+    filePath,
+    line,
+    author,
+    text,
+    context
+  });
+}
+
+async function deleteAnnotation(storagePath, project, filePath, line) {
+  return sendNativeMessage({
+    action: 'delete',
+    storagePath,
+    project,
+    filePath,
+    line
+  });
+}
+
+async function startEditing(storagePath, user, filePath, line) {
+  return sendNativeMessage({
+    action: 'startEditing',
+    storagePath,
+    user,
+    filePath,
+    line
+  });
+}
+
+async function stopEditing(storagePath, user) {
+  return sendNativeMessage({
+    action: 'stopEditing',
+    storagePath,
+    user
+  });
+}
+
+async function getEditing(storagePath) {
+  return sendNativeMessage({
+    action: 'getEditing',
+    storagePath
+  });
+}
+
+async function pingNativeHost() {
+  return sendNativeMessage({ action: 'ping' });
+}
+
 // Open file in VS Code using vscode:// URI
 async function openInVSCode(data) {
   const config = await getConfig();
@@ -51,6 +133,13 @@ chrome.runtime.onInstalled.addListener(() => {
     contexts: ['page'],
     documentUrlPatterns: ['*://*/source/xref/*']
   });
+
+  chrome.contextMenus.create({
+    id: 'add-annotation',
+    title: 'Add annotation to this line',
+    contexts: ['page', 'selection'],
+    documentUrlPatterns: ['*://*/source/xref/*']
+  });
 });
 
 // Handle context menu clicks
@@ -66,6 +155,10 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
     chrome.tabs.sendMessage(tab.id, {
       action: 'openInVSCode',
       lineNumber: '1'
+    });
+  } else if (info.menuItemId === 'add-annotation') {
+    chrome.tabs.sendMessage(tab.id, {
+      action: 'addAnnotationAtCursor'
     });
   }
 });
@@ -86,6 +179,64 @@ chrome.commands.onCommand.addListener((command) => {
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === 'openInVSCode') {
     openInVSCode(message.data).then(sendResponse);
+    return true;
+  }
+
+  // Annotation actions
+  if (message.action === 'annotation:read') {
+    readAnnotations(message.storagePath, message.project, message.filePath)
+      .then(sendResponse)
+      .catch(err => sendResponse({ success: false, error: err.message }));
+    return true;
+  }
+
+  if (message.action === 'annotation:save') {
+    saveAnnotation(
+      message.storagePath,
+      message.project,
+      message.filePath,
+      message.line,
+      message.author,
+      message.text,
+      message.context
+    )
+      .then(sendResponse)
+      .catch(err => sendResponse({ success: false, error: err.message }));
+    return true;
+  }
+
+  if (message.action === 'annotation:delete') {
+    deleteAnnotation(message.storagePath, message.project, message.filePath, message.line)
+      .then(sendResponse)
+      .catch(err => sendResponse({ success: false, error: err.message }));
+    return true;
+  }
+
+  if (message.action === 'annotation:startEditing') {
+    startEditing(message.storagePath, message.user, message.filePath, message.line)
+      .then(sendResponse)
+      .catch(err => sendResponse({ success: false, error: err.message }));
+    return true;
+  }
+
+  if (message.action === 'annotation:stopEditing') {
+    stopEditing(message.storagePath, message.user)
+      .then(sendResponse)
+      .catch(err => sendResponse({ success: false, error: err.message }));
+    return true;
+  }
+
+  if (message.action === 'annotation:getEditing') {
+    getEditing(message.storagePath)
+      .then(sendResponse)
+      .catch(err => sendResponse({ success: false, error: err.message }));
+    return true;
+  }
+
+  if (message.action === 'annotation:ping') {
+    pingNativeHost()
+      .then(sendResponse)
+      .catch(err => sendResponse({ success: false, error: err.message }));
     return true;
   }
 });
