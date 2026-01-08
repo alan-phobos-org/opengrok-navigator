@@ -1,7 +1,12 @@
 # OpenGrok Navigator Build System
 # Builds VS Code extension, Chrome extension, and og CLI tool
 
-.PHONY: all clean build-vscode build-chrome build-og build-og-annotate dist-og dist-og-annotate dist-scripts test-og test-og-annotate source dist dev help
+.PHONY: all clean build-vscode build-chrome build-og build-og-annotate build-og-annotate-all dist-og dist-og-annotate dist-scripts test-og test-og-annotate source dist dev help
+
+# Go build flags for minimal binary size
+# -s: disable symbol table
+# -w: disable DWARF generation
+GO_LDFLAGS := -ldflags="-s -w"
 
 # Default target
 all: dist
@@ -10,20 +15,21 @@ help:
 	@echo "OpenGrok Navigator Build System"
 	@echo ""
 	@echo "Targets:"
-	@echo "  all          - Build everything and create single distribution zip (default)"
-	@echo "  build-vscode - Build VS Code extension (.vsix)"
-	@echo "  build-chrome - Package Chrome extension (.zip)"
-	@echo "  build-og     - Build og CLI tool (requires Go)"
-	@echo "  dist-og      - Package og CLI as zip (source + binary)"
-	@echo "  dist-scripts - Package VM setup scripts as zip"
-	@echo "  test-og      - Run og CLI unit tests"
-	@echo "  build-og-annotate - Build og_annotate native host"
+	@echo "  all               - Build everything and create single distribution zip (default)"
+	@echo "  build-vscode      - Build VS Code extension (.vsix)"
+	@echo "  build-chrome      - Package Chrome extension (.zip)"
+	@echo "  build-og          - Build og CLI tool (requires Go)"
+	@echo "  dist-og           - Package og CLI as zip (source + binary)"
+	@echo "  dist-scripts      - Package VM setup scripts as zip"
+	@echo "  test-og           - Run og CLI unit tests"
+	@echo "  build-og-annotate - Build og_annotate native host (current platform)"
+	@echo "  build-og-annotate-all - Cross-compile og_annotate for all platforms"
 	@echo "  test-og-annotate  - Run og_annotate unit tests"
-	@echo "  dist-og-annotate  - Package og_annotate as zip"
-	@echo "  source       - Create source-only package (without .git, node_modules, etc.)"
-	@echo "  dist         - Build all and create single distribution zip with built extensions"
-	@echo "  clean        - Remove all build artifacts"
-	@echo "  dev          - Quick development build (no clean)"
+	@echo "  dist-og-annotate  - Package og_annotate with pre-built binaries for all platforms"
+	@echo "  source            - Create source-only package (without .git, node_modules, etc.)"
+	@echo "  dist              - Build all and create single distribution zip with built extensions"
+	@echo "  clean             - Remove all build artifacts"
+	@echo "  dev               - Quick development build (no clean)"
 	@echo ""
 
 # Clean all build artifacts
@@ -34,7 +40,8 @@ clean:
 	rm -rf vscode-extension/*.vsix
 	rm -rf chrome-extension/*.zip
 	rm -f og/og og/og-* og/*.zip
-	rm -f og_annotate/og_annotate og_annotate/og_annotate.exe og_annotate/*.zip
+	rm -f og_annotate/og_annotate og_annotate/og_annotate-* og_annotate/og_annotate.exe og_annotate/*.zip
+	rm -rf og_annotate/bin/
 	rm -rf scripts/*.zip
 	@echo "Clean complete"
 
@@ -55,6 +62,7 @@ build-chrome:
 		background.js \
 		content.js \
 		content.css \
+		debug.js \
 		annotations.js \
 		annotations.css \
 		dark-mode-init.js \
@@ -64,7 +72,7 @@ build-chrome:
 		icons/*.png \
 		README.md \
 		TESTING.md \
-		-x "*.zip" "dist/*" ".DS_Store"
+		-x "*.zip" "dist/*" ".DS_Store" "tests/*"
 	@echo "Chrome extension packaged successfully"
 
 # Build og CLI tool
@@ -101,23 +109,41 @@ test-og:
 	cd og && go test -v -timeout 30s ./...
 	@echo "og CLI tests passed"
 
-# Build og_annotate native messaging host
+# Build og_annotate native messaging host (current platform only)
 build-og-annotate:
 	@echo "Building og_annotate native host..."
-	cd og_annotate && go build -o og_annotate .
+	cd og_annotate && go build $(GO_LDFLAGS) -o og_annotate .
 	@echo "og_annotate built successfully"
 
-# Package og_annotate as zip
-dist-og-annotate: build-og-annotate
+# Cross-compile og_annotate for all platforms
+build-og-annotate-all:
+	@echo "Cross-compiling og_annotate for all platforms..."
+	@mkdir -p og_annotate/bin
+	@echo "  Building for Linux AMD64..."
+	cd og_annotate && GOOS=linux GOARCH=amd64 go build $(GO_LDFLAGS) -o bin/og_annotate-linux-amd64 .
+	@echo "  Building for Linux ARM64..."
+	cd og_annotate && GOOS=linux GOARCH=arm64 go build $(GO_LDFLAGS) -o bin/og_annotate-linux-arm64 .
+	@echo "  Building for macOS AMD64..."
+	cd og_annotate && GOOS=darwin GOARCH=amd64 go build $(GO_LDFLAGS) -o bin/og_annotate-darwin-amd64 .
+	@echo "  Building for macOS ARM64..."
+	cd og_annotate && GOOS=darwin GOARCH=arm64 go build $(GO_LDFLAGS) -o bin/og_annotate-darwin-arm64 .
+	@echo "  Building for Windows AMD64..."
+	cd og_annotate && GOOS=windows GOARCH=amd64 go build $(GO_LDFLAGS) -o bin/og_annotate-windows-amd64.exe .
+	@echo "  Building for Windows ARM64..."
+	cd og_annotate && GOOS=windows GOARCH=arm64 go build $(GO_LDFLAGS) -o bin/og_annotate-windows-arm64.exe .
+	@echo "All platforms built successfully"
+	@echo "Binary sizes:"
+	@ls -lh og_annotate/bin/
+
+# Package og_annotate with pre-built binaries for all platforms
+dist-og-annotate: build-og-annotate-all
 	@echo "Packaging og_annotate..."
 	cd og_annotate && zip -r og_annotate.zip \
-		*.go \
-		go.mod \
 		README.md \
 		install.sh \
 		install.bat \
-		og_annotate \
-		-x "*_test.go"
+		install.ps1 \
+		bin/
 	@echo "og_annotate packaged successfully"
 
 # Run og_annotate tests
