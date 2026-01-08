@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>OpenGrok Navigator - Debug Module Tests</title>
+  <style>
+    body { font-family: monospace; padding: 20px; background: #1e1e1e; color: #d4d4d4; }
+    .test { margin: 10px 0; padding: 10px; border-radius: 4px; }
+    .pass { background: #1a3d1a; border-left: 4px solid #4caf50; }
+    .fail { background: #3d1a1a; border-left: 4px solid #f44336; }
+    .info { background: #1a1a3d; border-left: 4px solid #2196f3; }
+    h1, h2 { color: #569cd6; }
+    pre { background: #2d2d2d; padding: 10px; overflow-x: auto; }
+    button { background: #0e639c; color: white; border: none; padding: 10px 20px; cursor: pointer; margin: 5px; }
+    button:hover { background: #1177bb; }
+  </style>
+</head>
+<body>
+  <h1>OpenGrok Navigator - Test Suite</h1>
+
+  <h2>Debug Module Tests</h2>
+  <div id="debug-tests"></div>
+
+  <h2>URL Parsing Tests</h2>
+  <div id="url-tests"></div>
+
+  <h2>Interactive Debug Test</h2>
+  <p>Open browser DevTools (F12) and check Console for log output:</p>
+  <button onclick="testDebugLevels()">Test All Log Levels</button>
+  <button onclick="testNamespacedLogger()">Test Namespaced Logger</button>
+
+  <script src="../debug.js"></script>
+  <script>
+    const testsDiv = document.getElementById('debug-tests');
+    const urlTestsDiv = document.getElementById('url-tests');
+
+    function addResult(container, name, passed, message) {
+      const div = document.createElement('div');
+      div.className = 'test ' + (passed ? 'pass' : 'fail');
+      div.innerHTML = `<strong>${passed ? '✓' : '✗'} ${name}</strong><br>${message}`;
+      container.appendChild(div);
+      return passed;
+    }
+
+    function addInfo(container, message) {
+      const div = document.createElement('div');
+      div.className = 'test info';
+      div.innerHTML = message;
+      container.appendChild(div);
+    }
+
+    // Debug module tests
+    function runDebugTests() {
+      let allPassed = true;
+
+      // Test 1: OGDebug exists
+      allPassed &= addResult(testsDiv, 'OGDebug module exists',
+        typeof OGDebug !== 'undefined',
+        typeof OGDebug !== 'undefined' ? 'OGDebug is defined' : 'OGDebug is undefined');
+
+      // Test 2: Log levels defined
+      allPassed &= addResult(testsDiv, 'Log levels defined',
+        OGDebug.LOG_LEVELS && OGDebug.LOG_LEVELS.OFF === 0 && OGDebug.LOG_LEVELS.TRACE === 5,
+        'LOG_LEVELS: ' + JSON.stringify(OGDebug.LOG_LEVELS));
+
+      // Test 3: createLogger function exists
+      allPassed &= addResult(testsDiv, 'createLogger function exists',
+        typeof OGDebug.createLogger === 'function',
+        'createLogger is ' + typeof OGDebug.createLogger);
+
+      // Test 4: Create a namespaced logger
+      const testLogger = OGDebug.createLogger('test');
+      allPassed &= addResult(testsDiv, 'Create namespaced logger',
+        testLogger && typeof testLogger.debug === 'function',
+        'Logger methods: ' + Object.keys(testLogger).join(', '));
+
+      // Test 5: Set log level
+      OGDebug.setLevel('DEBUG');
+      allPassed &= addResult(testsDiv, 'Set log level',
+        OGDebug.getLevelName() === 'DEBUG',
+        'Current level: ' + OGDebug.getLevelName());
+
+      // Test 6: Logger isEnabled
+      allPassed &= addResult(testsDiv, 'isEnabled for DEBUG level',
+        testLogger.isEnabled('DEBUG') === true && testLogger.isEnabled('TRACE') === false,
+        'DEBUG enabled: ' + testLogger.isEnabled('DEBUG') + ', TRACE enabled: ' + testLogger.isEnabled('TRACE'));
+
+      // Reset level
+      OGDebug.setLevel('OFF');
+
+      return allPassed;
+    }
+
+    // URL parsing tests
+    function runUrlTests() {
+      let allPassed = true;
+
+      const testCases = [
+        // Default /source/ patterns
+        {
+          url: 'http://example.com/source/xref/myproject/src/main.c#42',
+          expected: { project: 'myproject', filePath: 'src/main.c', lineNumber: '42' },
+          name: 'Standard /source/xref/ URL with line number'
+        },
+        {
+          url: 'http://example.com/source/xref/myproject/src/main.c',
+          expected: { project: 'myproject', filePath: 'src/main.c', lineNumber: '1' },
+          name: 'Standard /source/xref/ URL without line number'
+        },
+        {
+          url: 'http://example.com/source/xref/project-name/path/to/file.java?r=abc123#100',
+          expected: { project: 'project-name', filePath: 'path/to/file.java', lineNumber: '100' },
+          name: 'URL with query parameters and line number'
+        },
+        {
+          url: 'https://opengrok.example.com/source/xref/linux-kernel/drivers/gpu/drm/drm_atomic.c#500',
+          expected: { project: 'linux-kernel', filePath: 'drivers/gpu/drm/drm_atomic.c', lineNumber: '500' },
+          name: 'Deep nested path'
+        },
+        // Edge cases
+        {
+          url: 'http://example.com/source/',
+          expected: null,
+          name: 'Root source page (no project)'
+        },
+        {
+          url: 'http://example.com/source/search?q=test',
+          expected: null,
+          name: 'Search page'
+        }
+      ];
+
+      // Simple URL parser for testing (mirrors content.js logic)
+      function parseTestUrl(url) {
+        const urlWithoutQuery = url.split('?')[0];
+        const match = urlWithoutQuery.match(/\/xref\/([^/]+)\/(.+?)(?:#(\d+))?$/);
+        if (!match) return null;
+
+        return {
+          project: match[1],
+          filePath: match[2].replace(/#.*$/, ''),
+          lineNumber: match[3] || '1'
+        };
+      }
+
+      testCases.forEach(tc => {
+        const result = parseTestUrl(tc.url);
+        const passed = JSON.stringify(result) === JSON.stringify(tc.expected);
+        allPassed &= addResult(urlTestsDiv, tc.name, passed,
+          `URL: ${tc.url}<br>Expected: ${JSON.stringify(tc.expected)}<br>Got: ${JSON.stringify(result)}`);
+      });
+
+      return allPassed;
+    }
+
+    // Interactive tests
+    function testDebugLevels() {
+      OGDebug.setLevel('TRACE');
+      console.log('%c--- Testing all log levels ---', 'font-weight: bold; font-size: 14px');
+      OGDebug.error('This is an ERROR message');
+      OGDebug.warn('This is a WARN message');
+      OGDebug.info('This is an INFO message');
+      OGDebug.debug('This is a DEBUG message');
+      OGDebug.trace('This is a TRACE message');
+      OGDebug.setLevel('OFF');
+      console.log('%c--- Log levels test complete ---', 'font-weight: bold; font-size: 14px');
+    }
+
+    function testNamespacedLogger() {
+      OGDebug.setLevel('DEBUG');
+      console.log('%c--- Testing namespaced loggers ---', 'font-weight: bold; font-size: 14px');
+
+      const contentLog = OGDebug.createLogger('content');
+      const bgLog = OGDebug.createLogger('background');
+      const annLog = OGDebug.createLogger('annotations');
+
+      contentLog.info('Content script message', { url: window.location.href });
+      bgLog.debug('Background script message', { action: 'test' });
+      annLog.warn('Annotations warning', { line: 42 });
+
+      OGDebug.setLevel('OFF');
+      console.log('%c--- Namespaced logger test complete ---', 'font-weight: bold; font-size: 14px');
+    }
+
+    // Run tests on load
+    document.addEventListener('DOMContentLoaded', () => {
+      runDebugTests();
+      runUrlTests();
+    });
+  </script>
+</body>
+</html>

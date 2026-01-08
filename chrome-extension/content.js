@@ -1,18 +1,117 @@
+// OpenGrok Navigator - Content Script
+// Adds VS Code integration and UI enhancements to OpenGrok pages
+
+// Initialize debug logger
+const log = (typeof OGDebug !== 'undefined') ? OGDebug.createLogger('content') : {
+  error: () => {}, warn: () => {}, info: () => {}, debug: () => {}, trace: () => {},
+  isEnabled: () => false
+};
+
+log.info('Content script loading', { url: window.location.href });
+
+// Configuration cache for custom OpenGrok roots
+let cachedConfig = null;
+let configLoadPromise = null;
+
+// Load configuration from storage
+async function loadConfig() {
+  if (cachedConfig) return cachedConfig;
+  if (configLoadPromise) return configLoadPromise;
+
+  configLoadPromise = new Promise((resolve) => {
+    chrome.storage.sync.get({
+      openGrokRoots: [],
+      projectMappings: {},
+      defaultWorkspaceRoot: ''
+    }, (result) => {
+      cachedConfig = result;
+      log.debug('Configuration loaded', cachedConfig);
+      resolve(cachedConfig);
+    });
+  });
+
+  return configLoadPromise;
+}
+
+// Check if URL matches default /source/ pattern
+function matchesDefaultPattern(url) {
+  const patterns = [
+    /\/source\/xref\//,
+    /\/source\/search/,
+    /\/source\/?$/
+  ];
+
+  for (const pattern of patterns) {
+    if (pattern.test(url)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+// Get the base path for the current OpenGrok instance
+// Returns the path segment before /xref/, /search, or end of configured root
+function getOpenGrokBasePath() {
+  const url = window.location.href;
+
+  // Check for default /source/ pattern
+  const sourceMatch = url.match(/(.+?\/source)(?:\/xref\/|\/search|\/?$)/);
+  if (sourceMatch) {
+    log.trace('Using default /source/ base path', sourceMatch[1]);
+    return sourceMatch[1];
+  }
+
+  // Check cached config for custom roots
+  if (cachedConfig && cachedConfig.openGrokRoots) {
+    for (const root of cachedConfig.openGrokRoots) {
+      if (!root) continue;
+      const normalizedRoot = root.trim().replace(/\/$/, '');
+      if (url.startsWith(normalizedRoot)) {
+        log.trace('Using custom root base path', normalizedRoot);
+        return normalizedRoot;
+      }
+    }
+  }
+
+  log.warn('Could not determine OpenGrok base path');
+  return null;
+}
+
 // Parse OpenGrok URL to extract file path and line number
+// Supports both /source/xref/ pattern and custom roots
 function parseOpenGrokUrl() {
   const url = window.location.href;
+  log.trace('Parsing OpenGrok URL', url);
 
   // Remove query parameters (like ?r=revision) before parsing
   const urlWithoutQuery = url.split('?')[0];
 
-  const match = urlWithoutQuery.match(/\/xref\/([^/]+)\/(.+?)(?:#(\d+))?$/);
-  if (!match) return null;
+  // Try standard /xref/ pattern first
+  let match = urlWithoutQuery.match(/\/xref\/([^/]+)\/(.+?)(?:#(\d+))?$/);
 
-  return {
+  if (!match) {
+    // Try to find project/path after the base path
+    const basePath = getOpenGrokBasePath();
+    if (basePath) {
+      const afterBase = urlWithoutQuery.substring(basePath.length);
+      // Look for patterns like /xref/project/path or just /project/path
+      match = afterBase.match(/(?:\/xref)?\/([^/]+)\/(.+?)(?:#(\d+))?$/);
+    }
+  }
+
+  if (!match) {
+    log.debug('Could not parse OpenGrok URL', url);
+    return null;
+  }
+
+  const parsed = {
     project: match[1],
     filePath: match[2].replace(/#.*$/, ''),
     lineNumber: match[3] || window.location.hash.replace('#', '') || '1'
   };
+
+  log.debug('Parsed URL', parsed);
+  return parsed;
 }
 
 // Parse search result link to extract file path and line number
@@ -22,7 +121,10 @@ function parseSearchResultLink(linkElement) {
 
   // Match /xref/{project}/{path}#{line}
   const match = href.match(/\/xref\/([^/]+)\/(.+?)#(\d+)$/);
-  if (!match) return null;
+  if (!match) {
+    log.trace('Could not parse search result link', href);
+    return null;
+  }
 
   return {
     project: match[1],
@@ -60,9 +162,9 @@ function createPreview(anchor, lineNumber, project = null, filePath = null) {
       <button class="vscode-preview-close">&times;</button>
     </div>
     <div class="vscode-preview-info">
-      <div class="vscode-preview-project">${project}</div>
-      <div class="vscode-preview-path">${filePath}</div>
-      <div class="vscode-preview-line">Line ${lineNumber}</div>
+      <div class="vscode-preview-project">${escapeHtml(project)}</div>
+      <div class="vscode-preview-path">${escapeHtml(filePath)}</div>
+      <div class="vscode-preview-line">Line ${escapeHtml(String(lineNumber))}</div>
     </div>
     <button class="vscode-preview-open">Open</button>
   `;
@@ -113,10 +215,21 @@ function hidePreview() {
   }
 }
 
+// Escape HTML to prevent XSS
+function escapeHtml(text) {
+  if (text === null || text === undefined) return '';
+  const div = document.createElement('div');
+  div.textContent = String(text);
+  return div.innerHTML;
+}
+
 // Add UI enhancements
 function enhanceUI() {
+  log.info('Enhancing UI');
+
   // Enhance line numbers on file pages (a.l for regular, a.hl for highlighted every 10th)
   const lineNumbers = document.querySelectorAll('a.l, a.hl');
+  log.debug('Found line number anchors', { count: lineNumbers.length });
 
   lineNumbers.forEach(anchor => {
     anchor.title = 'Ctrl+Click to open in VS Code';
@@ -127,6 +240,7 @@ function enhanceUI() {
       if (e.ctrlKey || e.metaKey) {
         e.preventDefault();
         const lineNum = anchor.textContent.trim();
+        log.info('Line number Ctrl+clicked', { line: lineNum });
         openInVSCode(lineNum);
       }
     });
@@ -134,6 +248,7 @@ function enhanceUI() {
 
   // Enhance line numbers on search results pages (a.s > span.l)
   const searchResultLines = document.querySelectorAll('a.s');
+  log.debug('Found search result links', { count: searchResultLines.length });
 
   searchResultLines.forEach(anchor => {
     const lineSpan = anchor.querySelector('span.l');
@@ -152,6 +267,7 @@ function enhanceUI() {
       if (e.ctrlKey || e.metaKey) {
         e.preventDefault();
         e.stopPropagation(); // Prevent navigation
+        log.info('Search result line Ctrl+clicked', linkInfo);
         openInVSCodeWithParams(linkInfo.project, linkInfo.filePath, linkInfo.lineNumber);
       }
     });
@@ -163,6 +279,8 @@ function enhanceUI() {
   const hasDirectoryListing = document.querySelector('table.directory, table#dirlist, .directory-list') !== null;
   const isFilePage = hasLineNumbers && !hasDirectoryListing;
 
+  log.debug('Page analysis', { hasLineNumbers, hasDirectoryListing, isFilePage });
+
   // Create button toolbar container
   const toolbar = document.createElement('div');
   toolbar.className = 'vscode-button-toolbar';
@@ -173,7 +291,7 @@ function enhanceUI() {
     // Live-sync toggle button
     const syncButton = document.createElement('button');
     syncButton.id = 'vscode-sync-button';
-    syncButton.textContent = '⚡ Live Sync to VS Code';
+    syncButton.textContent = 'Live Sync to VS Code';
     syncButton.className = 'vscode-sync-btn';
     syncButton.title = 'Toggle live sync with VS Code - automatically follow navigation';
     toolbar.appendChild(syncButton);
@@ -181,12 +299,13 @@ function enhanceUI() {
     // Open in VS Code button
     const openButton = document.createElement('button');
     openButton.id = 'vscode-open-button';
-    openButton.textContent = '📝 Open in VS Code';
+    openButton.textContent = 'Open in VS Code';
     openButton.className = 'vscode-open-btn';
     openButton.title = 'Open current file in VS Code';
     toolbar.appendChild(openButton);
 
     openButton.addEventListener('click', () => {
+      log.info('Open in VS Code button clicked');
       openInVSCode();
     });
 
@@ -197,7 +316,7 @@ function enhanceUI() {
   // File finder button (always enabled)
   const finderButton = document.createElement('button');
   finderButton.id = 'vscode-finder-button';
-  finderButton.textContent = '🔍 Find File';
+  finderButton.textContent = 'Find File';
   finderButton.className = 'vscode-finder-btn';
   finderButton.title = 'Quick file finder (press T)';
 
@@ -205,6 +324,7 @@ function enhanceUI() {
   toolbar.insertBefore(finderButton, toolbar.firstChild);
 
   finderButton.addEventListener('click', () => {
+    log.info('File finder button clicked');
     openFileFinder();
   });
 
@@ -214,6 +334,7 @@ function enhanceUI() {
   // Only append toolbar if it has buttons
   if (toolbar.children.length > 0) {
     document.body.appendChild(toolbar);
+    log.debug('Toolbar added to page');
   }
 }
 
@@ -226,6 +347,7 @@ function handleKeyboardShortcuts(e) {
   // 't' key to open file finder (unless in input field)
   if (e.key === 't' && !isInInputField(e.target)) {
     e.preventDefault();
+    log.debug('File finder shortcut triggered');
     openFileFinder();
   }
   // 'c' key to create annotation at current line
@@ -249,21 +371,27 @@ function handleKeyboardShortcuts(e) {
 }
 
 function isInInputField(element) {
-  const tagName = element.tagName.toLowerCase();
+  if (!element) return false;
+  const tagName = element.tagName ? element.tagName.toLowerCase() : '';
   return tagName === 'input' || tagName === 'textarea' || element.isContentEditable;
 }
 
 async function openFileFinder() {
   if (fileFinderModal) {
     // Already open, just focus the input
-    fileFinderModal.querySelector('.vscode-finder-input').focus();
+    const input = fileFinderModal.querySelector('.vscode-finder-input');
+    if (input) input.focus();
     return;
   }
 
   const parsed = parseOpenGrokUrl();
-  if (!parsed) return;
+  if (!parsed) {
+    log.warn('Cannot open file finder - failed to parse URL');
+    return;
+  }
 
   currentProject = parsed.project;
+  log.info('Opening file finder', { project: currentProject });
 
   // Create modal
   fileFinderModal = document.createElement('div');
@@ -274,14 +402,14 @@ async function openFileFinder() {
         <span class="vscode-finder-title">Quick File Finder</span>
         <button class="vscode-finder-close">&times;</button>
       </div>
-      <input type="text" class="vscode-finder-input" placeholder="Type to search files in ${parsed.project}..." autofocus>
+      <input type="text" class="vscode-finder-input" placeholder="Type to search files in ${escapeHtml(parsed.project)}..." autofocus>
       <div class="vscode-finder-results">
         <div class="vscode-finder-empty">Type at least 2 characters to search</div>
       </div>
       <div class="vscode-finder-footer">
-        <span>↑↓ Navigate</span>
+        <span>Navigate</span>
         <span>Enter Open</span>
-        <span>⇧Enter VS Code</span>
+        <span>Shift+Enter VS Code</span>
         <span>ESC Close</span>
       </div>
     </div>
@@ -343,13 +471,20 @@ function closeFileFinder() {
   if (fileFinderModal) {
     fileFinderModal.remove();
     fileFinderModal = null;
+    log.debug('File finder closed');
   }
   clearTimeout(searchTimeout);
 }
 
 // Server-side file search using OpenGrok REST API
 async function searchFiles(query, resultsDiv) {
-  const baseUrl = window.location.origin + window.location.pathname.split('/xref/')[0];
+  const basePath = getOpenGrokBasePath();
+  if (!basePath) {
+    resultsDiv.innerHTML = '<div class="vscode-finder-empty">Could not determine OpenGrok base path</div>';
+    return;
+  }
+
+  log.debug('Searching files', { query, basePath, project: currentProject });
 
   try {
     // Use path search with wildcards for substring matching
@@ -359,21 +494,27 @@ async function searchFiles(query, resultsDiv) {
       maxresults: '50'
     });
 
-    const searchUrl = `${baseUrl}/api/v1/search?${searchParams}`;
+    const searchUrl = `${basePath}/api/v1/search?${searchParams}`;
+    log.trace('Search URL', searchUrl);
+
     const response = await fetch(searchUrl);
 
     if (!response.ok) {
       if (response.status === 404) {
+        log.warn('REST API not available', { status: response.status });
         resultsDiv.innerHTML = '<div class="vscode-finder-empty">File search not available on this OpenGrok instance (requires REST API v1.0+)</div>';
       } else if (response.status === 401 || response.status === 403) {
+        log.warn('Authentication required for search', { status: response.status });
         resultsDiv.innerHTML = '<div class="vscode-finder-empty">Authentication required for file search</div>';
       } else {
+        log.error('Search request failed', { status: response.status });
         resultsDiv.innerHTML = `<div class="vscode-finder-empty">Search failed (HTTP ${response.status})</div>`;
       }
       return;
     }
 
     const data = await response.json();
+    log.trace('Search response', data);
 
     // Extract file paths from results (results are keyed by file path)
     const files = Object.keys(data.results || {});
@@ -382,6 +523,8 @@ async function searchFiles(query, resultsDiv) {
       resultsDiv.innerHTML = '<div class="vscode-finder-empty">No matching files found</div>';
       return;
     }
+
+    log.debug('Search results', { count: files.length });
 
     // Sort by relevance (shorter paths and filename matches first)
     const lowerQuery = query.toLowerCase();
@@ -404,6 +547,7 @@ async function searchFiles(query, resultsDiv) {
     displayResults(files, query, resultsDiv);
 
   } catch (error) {
+    log.error('Search failed', error);
     resultsDiv.innerHTML = '<div class="vscode-finder-empty">Search failed - network or API error</div>';
   }
 }
@@ -456,13 +600,9 @@ function highlightMatch(text, query) {
   return result;
 }
 
-function escapeHtml(text) {
-  const div = document.createElement('div');
-  div.textContent = text;
-  return div.innerHTML;
-}
-
 function selectNextResult() {
+  if (!fileFinderModal) return;
+
   const results = fileFinderModal.querySelectorAll('.vscode-finder-result');
   const selected = fileFinderModal.querySelector('.vscode-finder-result.selected');
 
@@ -477,6 +617,8 @@ function selectNextResult() {
 }
 
 function selectPrevResult() {
+  if (!fileFinderModal) return;
+
   const results = fileFinderModal.querySelectorAll('.vscode-finder-result');
   const selected = fileFinderModal.querySelector('.vscode-finder-result.selected');
 
@@ -491,6 +633,8 @@ function selectPrevResult() {
 }
 
 function openSelectedFile(openInVSCodeFlag = false) {
+  if (!fileFinderModal) return;
+
   const selected = fileFinderModal.querySelector('.vscode-finder-result.selected');
   if (!selected) return;
 
@@ -503,19 +647,25 @@ function openSelectedFile(openInVSCodeFlag = false) {
 }
 
 function navigateToFile(filePath) {
-  // Navigate to the file in OpenGrok
-  const baseUrl = window.location.origin + window.location.pathname.split('/xref/')[0];
+  const basePath = getOpenGrokBasePath();
+  if (!basePath) {
+    log.error('Cannot navigate - no base path');
+    return;
+  }
 
   // The API returns paths that may already include the project prefix
   // Strip it if present to avoid duplication
   let cleanPath = filePath;
-  if (filePath.startsWith('/' + currentProject + '/')) {
-    cleanPath = filePath.substring(currentProject.length + 1);
-  } else if (filePath.startsWith(currentProject + '/')) {
-    cleanPath = filePath.substring(currentProject.length + 1);
+  if (currentProject) {
+    if (filePath.startsWith('/' + currentProject + '/')) {
+      cleanPath = filePath.substring(currentProject.length + 1);
+    } else if (filePath.startsWith(currentProject + '/')) {
+      cleanPath = filePath.substring(currentProject.length + 1);
+    }
   }
 
-  const fileUrl = `${baseUrl}/xref/${currentProject}${cleanPath.startsWith('/') ? '' : '/'}${cleanPath}`;
+  const fileUrl = `${basePath}/xref/${currentProject}${cleanPath.startsWith('/') ? '' : '/'}${cleanPath}`;
+  log.info('Navigating to file', { url: fileUrl });
 
   closeFileFinder();
   window.location.href = fileUrl;
@@ -523,7 +673,10 @@ function navigateToFile(filePath) {
 
 function openFileInVSCode(filePath) {
   const parsed = parseOpenGrokUrl();
-  if (!parsed) return;
+  if (!parsed) {
+    log.error('Cannot open in VS Code - failed to parse URL');
+    return;
+  }
 
   // The API returns paths that may already include the project prefix
   // Strip it if present to avoid duplication
@@ -538,6 +691,8 @@ function openFileInVSCode(filePath) {
     cleanPath = cleanPath.substring(1);
   }
 
+  log.info('Opening file in VS Code', { project: parsed.project, path: cleanPath });
+
   // Send to background script to open in VS Code
   chrome.runtime.sendMessage({
     action: 'openInVSCode',
@@ -547,9 +702,15 @@ function openFileInVSCode(filePath) {
       lineNumber: '1'
     }
   }, (response) => {
+    if (chrome.runtime.lastError) {
+      log.error('Failed to send message to background', chrome.runtime.lastError);
+      return;
+    }
     if (response && response.error) {
+      log.error('VS Code open failed', response.error);
       alert(`Error: ${response.error}`);
     } else if (response && response.uri) {
+      log.debug('Opening VS Code URI', response.uri);
       const iframe = document.createElement('iframe');
       iframe.style.display = 'none';
       iframe.src = response.uri;
@@ -572,6 +733,7 @@ function setupLiveSyncButton(syncButton) {
     if (result.liveSyncEnabled) {
       liveSyncEnabled = true;
       syncButton.classList.add('active');
+      log.info('Live sync restored from storage');
       startLiveSync();
     }
   });
@@ -579,6 +741,7 @@ function setupLiveSyncButton(syncButton) {
   syncButton.addEventListener('click', () => {
     liveSyncEnabled = !liveSyncEnabled;
     syncButton.classList.toggle('active');
+    log.info('Live sync toggled', { enabled: liveSyncEnabled });
 
     chrome.storage.local.set({ liveSyncEnabled });
 
@@ -594,6 +757,8 @@ let urlObserver = null;
 let hashChangeHandler = null;
 
 function startLiveSync() {
+  log.debug('Starting live sync');
+
   // Sync immediately
   syncCurrentLocation();
 
@@ -614,6 +779,8 @@ function startLiveSync() {
 }
 
 function stopLiveSync() {
+  log.debug('Stopping live sync');
+
   if (hashChangeHandler) {
     window.removeEventListener('hashchange', hashChangeHandler);
     hashChangeHandler = null;
@@ -633,12 +800,15 @@ function syncCurrentLocation() {
   // Only sync if line changed
   if (currentLine !== lastSyncedLine) {
     lastSyncedLine = currentLine;
+    log.debug('Syncing location', { line: currentLine });
     openInVSCode(currentLine);
   }
 }
 
 // Open file in VS Code with explicit parameters
 function openInVSCodeWithParams(project, filePath, lineNumber) {
+  log.info('Opening in VS Code', { project, filePath, lineNumber });
+
   chrome.runtime.sendMessage({
     action: 'openInVSCode',
     data: {
@@ -647,9 +817,15 @@ function openInVSCodeWithParams(project, filePath, lineNumber) {
       lineNumber: lineNumber
     }
   }, (response) => {
+    if (chrome.runtime.lastError) {
+      log.error('Failed to send message to background', chrome.runtime.lastError);
+      return;
+    }
     if (response && response.error) {
+      log.error('VS Code open failed', response.error);
       alert(`Error: ${response.error}`);
     } else if (response && response.uri) {
+      log.debug('Opening VS Code URI', response.uri);
       // Use hidden iframe to trigger protocol handler without popup
       const iframe = document.createElement('iframe');
       iframe.style.display = 'none';
@@ -665,6 +841,7 @@ function openInVSCodeWithParams(project, filePath, lineNumber) {
 function openInVSCode(lineNumber = null) {
   const parsed = parseOpenGrokUrl();
   if (!parsed) {
+    log.warn('Could not parse OpenGrok URL for VS Code');
     alert('Could not parse OpenGrok URL');
     return;
   }
@@ -678,6 +855,8 @@ function openInVSCode(lineNumber = null) {
 
 // Handle messages from background
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  log.debug('Received message', { action: message.action });
+
   if (message.action === 'keyboardShortcut') {
     if (message.command === 'open-current-line') {
       const hash = window.location.hash.replace('#', '');
@@ -700,8 +879,20 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 });
 
 // Initialize
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', enhanceUI);
-} else {
-  enhanceUI();
+async function init() {
+  log.info('Initializing content script');
+
+  // Load configuration first
+  await loadConfig();
+
+  // Enhance the UI
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', enhanceUI);
+  } else {
+    enhanceUI();
+  }
+
+  log.info('Content script initialized');
 }
+
+init();

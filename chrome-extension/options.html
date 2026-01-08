@@ -294,6 +294,40 @@
       color: #e0e0e0;
     }
 
+    select {
+      padding: 8px 12px;
+      border: 1px solid #c0c0c0;
+      border-radius: 6px;
+      font-size: 14px;
+      background: #ffffff;
+      color: #2d2d30;
+      transition: all 0.2s ease;
+    }
+
+    body.dark-mode select {
+      border: 1px solid #555555;
+      background: #3c3c3c;
+      color: #e0e0e0;
+    }
+
+    select:focus {
+      outline: none;
+      border-color: #007acc;
+      box-shadow: 0 0 0 3px rgba(0, 122, 204, 0.2);
+    }
+
+    code {
+      background: #e8e8e8;
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+      font-size: 13px;
+    }
+
+    body.dark-mode code {
+      background: #3c3c3c;
+    }
+
   </style>
 </head>
 <body>
@@ -346,6 +380,18 @@
       </div>
 
       <div class="section">
+        <h2>OpenGrok URL Roots</h2>
+        <div class="hint" style="margin-bottom: 15px;">
+          By default, the extension matches URLs containing <code>/source/</code>. Add custom root URLs if your OpenGrok instance uses a different path.
+        </div>
+        <div id="urlRoots"></div>
+        <button class="add-btn" id="addUrlRoot">Add URL Root</button>
+        <div class="hint" style="margin-top: 10px;">
+          Examples: <code>https://opengrok.mycompany.com/code</code>, <code>http://localhost:8080/grok</code>
+        </div>
+      </div>
+
+      <div class="section">
         <h2>Advanced Settings</h2>
         <div style="display: flex; align-items: center; gap: 10px; padding: 8px 0;">
           <input type="checkbox" id="darkModeEnabled" />
@@ -353,6 +399,20 @@
         </div>
         <div class="hint">
           Applies a dark color scheme to OpenGrok pages for better readability in low-light environments
+        </div>
+        <div style="margin-top: 16px;">
+          <label for="debugLogLevel" style="display: block; margin-bottom: 6px;">Debug Log Level</label>
+          <select id="debugLogLevel" style="padding: 8px 12px; border: 1px solid #c0c0c0; border-radius: 6px; font-size: 14px; background: #ffffff; color: #2d2d30;">
+            <option value="OFF">Off</option>
+            <option value="ERROR">Error</option>
+            <option value="WARN">Warn</option>
+            <option value="INFO">Info</option>
+            <option value="DEBUG">Debug</option>
+            <option value="TRACE">Trace</option>
+          </select>
+          <div class="hint">
+            Enable console logging for debugging. Open DevTools (F12) to view logs.
+          </div>
         </div>
       </div>
     </div>

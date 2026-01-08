@@ -1,7 +1,14 @@
 // OpenGrok Annotations - Content Script
 
+// Initialize debug logger
+const annotationLog = (typeof OGDebug !== 'undefined') ? OGDebug.createLogger('annotations') : {
+  error: () => {}, warn: () => {}, info: () => {}, debug: () => {}, trace: () => {},
+  isEnabled: () => false
+};
+
 class AnnotationManager {
   constructor() {
+    annotationLog.info('AnnotationManager initializing');
     this.enabled = false;
     this.annotations = [];
     this.currentEditor = null;
@@ -16,6 +23,9 @@ class AnnotationManager {
     if (parsed) {
       this.project = parsed.project;
       this.filePath = parsed.filePath;
+      annotationLog.debug('Parsed page info', { project: this.project, filePath: this.filePath });
+    } else {
+      annotationLog.warn('Could not parse page URL for annotations');
     }
 
     // Track mouse position for 'c' keyboard shortcut
@@ -41,6 +51,8 @@ class AnnotationManager {
   }
 
   async init() {
+    annotationLog.info('Initializing annotations');
+
     // Load config
     await this.loadConfig();
 
@@ -49,8 +61,11 @@ class AnnotationManager {
 
     // Add annotation indicators for existing annotations
     if (this.config.storagePath) {
+      annotationLog.debug('Storage path configured, loading annotations');
       await this.loadAnnotations();
       this.renderIndicators();
+    } else {
+      annotationLog.debug('No storage path configured');
     }
 
     // Setup page unload handler to clear editing state
@@ -62,6 +77,7 @@ class AnnotationManager {
 
     // Auto-enable annotations if configured and enabled by default
     await this.restoreEnabledState();
+    annotationLog.info('Annotations initialized', { enabled: this.enabled });
   }
 
   async restoreEnabledState() {
@@ -254,9 +270,16 @@ class AnnotationManager {
 
   async loadAnnotations() {
     if (!this.config.storagePath || !this.project || !this.filePath) {
+      annotationLog.debug('Cannot load annotations - missing config', {
+        hasStoragePath: !!this.config.storagePath,
+        hasProject: !!this.project,
+        hasFilePath: !!this.filePath
+      });
       this.annotations = [];
       return;
     }
+
+    annotationLog.debug('Loading annotations', { project: this.project, filePath: this.filePath });
 
     const result = await this.sendMessage({
       action: 'annotation:read',
@@ -267,8 +290,10 @@ class AnnotationManager {
 
     if (result && result.success) {
       this.annotations = result.annotations || [];
+      annotationLog.info('Annotations loaded', { count: this.annotations.length });
     } else {
       this.annotations = [];
+      annotationLog.error('Failed to load annotations', result?.error);
       if (result && result.error) {
         this.showToast(result.error, 'error');
       }
@@ -858,17 +883,22 @@ class AnnotationManager {
       try {
         if (!chrome.runtime?.id) {
           // Extension context invalidated (extension reloaded/disabled)
+          annotationLog.error('Extension context invalidated');
           resolve({ success: false, error: 'Extension was reloaded. Please refresh the page.' });
           return;
         }
+        annotationLog.trace('Sending message', { action: message.action });
         chrome.runtime.sendMessage(message, (response) => {
           if (chrome.runtime.lastError) {
+            annotationLog.error('Message error', chrome.runtime.lastError.message);
             resolve({ success: false, error: chrome.runtime.lastError.message });
           } else {
+            annotationLog.trace('Message response', response);
             resolve(response);
           }
         });
       } catch (e) {
+        annotationLog.error('Message exception', e);
         resolve({ success: false, error: 'Extension context invalidated. Please refresh the page.' });
       }
     });
@@ -882,9 +912,14 @@ function initAnnotations() {
   const hasDirectoryListing = document.querySelector('table.directory, table#dirlist, .directory-list') !== null;
   const isFilePage = hasLineNumbers && !hasDirectoryListing;
 
+  annotationLog.debug('Checking if annotations should initialize', { hasLineNumbers, hasDirectoryListing, isFilePage });
+
   if (isFilePage) {
+    annotationLog.info('Initializing annotation manager on file page');
     window.annotationManager = new AnnotationManager();
     window.annotationManager.init();
+  } else {
+    annotationLog.debug('Skipping annotation manager - not a file page');
   }
 }
 

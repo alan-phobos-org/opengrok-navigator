@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>OpenGrok Navigator - URL Root Tests</title>
+  <style>
+    body { font-family: monospace; padding: 20px; background: #1e1e1e; color: #d4d4d4; }
+    .test { margin: 10px 0; padding: 10px; border-radius: 4px; }
+    .pass { background: #1a3d1a; border-left: 4px solid #4caf50; }
+    .fail { background: #3d1a1a; border-left: 4px solid #f44336; }
+    .info { background: #1a1a3d; border-left: 4px solid #2196f3; }
+    h1, h2 { color: #569cd6; }
+    pre { background: #2d2d2d; padding: 10px; overflow-x: auto; }
+  </style>
+</head>
+<body>
+  <h1>OpenGrok Navigator - URL Root Matching Tests</h1>
+
+  <h2>Default Pattern Matching</h2>
+  <div id="default-tests"></div>
+
+  <h2>Custom Root Matching</h2>
+  <div id="custom-tests"></div>
+
+  <h2>Base Path Extraction</h2>
+  <div id="basepath-tests"></div>
+
+  <script>
+    function addResult(container, name, passed, message) {
+      const div = document.createElement('div');
+      div.className = 'test ' + (passed ? 'pass' : 'fail');
+      div.innerHTML = `<strong>${passed ? '✓' : '✗'} ${name}</strong><br>${message}`;
+      container.appendChild(div);
+      return passed;
+    }
+
+    // Replicate the matching logic from background.js
+    function matchesDefaultPattern(url) {
+      const patterns = [
+        /\/source\/xref\//,
+        /\/source\/search/,
+        /\/source\/?$/
+      ];
+
+      for (const pattern of patterns) {
+        if (pattern.test(url)) {
+          return true;
+        }
+      }
+      return false;
+    }
+
+    function matchesOpenGrokRoot(url, roots) {
+      if (!roots || roots.length === 0) return false;
+
+      for (const root of roots) {
+        if (!root || !root.trim()) continue;
+
+        try {
+          const normalizedRoot = root.trim().replace(/\/$/, '');
+          if (url.startsWith(normalizedRoot)) {
+            return true;
+          }
+        } catch (e) {
+          console.warn('Invalid root:', root);
+        }
+      }
+      return false;
+    }
+
+    // Replicate base path extraction from content.js
+    function getOpenGrokBasePath(url, customRoots = []) {
+      // Check for default /source/ pattern
+      const sourceMatch = url.match(/(.+?\/source)(?:\/xref\/|\/search|\/?$)/);
+      if (sourceMatch) {
+        return sourceMatch[1];
+      }
+
+      // Check custom roots
+      for (const root of customRoots) {
+        if (!root) continue;
+        const normalizedRoot = root.trim().replace(/\/$/, '');
+        if (url.startsWith(normalizedRoot)) {
+          return normalizedRoot;
+        }
+      }
+
+      return null;
+    }
+
+    // Default pattern tests
+    const defaultTestsDiv = document.getElementById('default-tests');
+
+    const defaultPatternCases = [
+      { url: 'http://example.com/source/xref/project/file.c', expected: true, name: '/source/xref/ pattern' },
+      { url: 'http://example.com/source/search?q=test', expected: true, name: '/source/search pattern' },
+      { url: 'http://example.com/source/', expected: true, name: '/source/ root with trailing slash' },
+      { url: 'http://example.com/source', expected: true, name: '/source root without trailing slash' },
+      { url: 'http://example.com/opengrok/xref/project/file.c', expected: false, name: 'Non-standard path (should not match)' },
+      { url: 'http://example.com/code/project/file.c', expected: false, name: 'Custom path (should not match)' },
+      { url: 'http://example.com/', expected: false, name: 'Root URL (should not match)' },
+      { url: 'http://example.com/source/xref/', expected: true, name: '/source/xref/ with trailing slash' },
+    ];
+
+    defaultPatternCases.forEach(tc => {
+      const result = matchesDefaultPattern(tc.url);
+      addResult(defaultTestsDiv, tc.name, result === tc.expected,
+        `URL: ${tc.url}<br>Expected: ${tc.expected}, Got: ${result}`);
+    });
+
+    // Custom root tests
+    const customTestsDiv = document.getElementById('custom-tests');
+    const customRoots = [
+      'https://opengrok.mycompany.com/code',
+      'http://localhost:8080/grok',
+      'https://internal.dev/opengrok/'  // With trailing slash
+    ];
+
+    const customRootCases = [
+      { url: 'https://opengrok.mycompany.com/code/xref/project/file.c', expected: true, name: 'Custom root match' },
+      { url: 'http://localhost:8080/grok/xref/test/main.java', expected: true, name: 'Localhost custom root' },
+      { url: 'https://internal.dev/opengrok/xref/proj/file.py', expected: true, name: 'Custom root with trailing slash in config' },
+      { url: 'https://opengrok.other.com/code/xref/project/file.c', expected: false, name: 'Different domain (should not match)' },
+      { url: 'http://localhost:8080/other/xref/test/main.java', expected: false, name: 'Different path (should not match)' },
+      { url: 'https://opengrok.mycompany.com/codebase/xref/project/file.c', expected: false, name: 'Partial path match (should not match)' },
+    ];
+
+    customRootCases.forEach(tc => {
+      const result = matchesOpenGrokRoot(tc.url, customRoots);
+      addResult(customTestsDiv, tc.name, result === tc.expected,
+        `URL: ${tc.url}<br>Roots: ${JSON.stringify(customRoots)}<br>Expected: ${tc.expected}, Got: ${result}`);
+    });
+
+    // Base path extraction tests
+    const basepathTestsDiv = document.getElementById('basepath-tests');
+
+    const basepathCases = [
+      { url: 'http://example.com/source/xref/project/file.c', roots: [], expected: 'http://example.com/source', name: 'Default source base path' },
+      { url: 'http://example.com/source/search?q=test', roots: [], expected: 'http://example.com/source', name: 'Search page base path' },
+      { url: 'https://opengrok.mycompany.com/code/xref/project/file.c', roots: ['https://opengrok.mycompany.com/code'], expected: 'https://opengrok.mycompany.com/code', name: 'Custom root base path' },
+      { url: 'http://localhost:8080/grok/xref/test/main.java', roots: ['http://localhost:8080/grok/'], expected: 'http://localhost:8080/grok', name: 'Custom root with trailing slash' },
+      { url: 'http://unknown.com/random/path', roots: [], expected: null, name: 'Unknown URL (should return null)' },
+    ];
+
+    basepathCases.forEach(tc => {
+      const result = getOpenGrokBasePath(tc.url, tc.roots);
+      const passed = result === tc.expected;
+      addResult(basepathTestsDiv, tc.name, passed,
+        `URL: ${tc.url}<br>Roots: ${JSON.stringify(tc.roots)}<br>Expected: ${tc.expected}<br>Got: ${result}`);
+    });
+
+    // Edge case tests
+    const edgeCaseTests = [
+      // Empty/null roots
+      { test: () => matchesOpenGrokRoot('http://example.com/', []), expected: false, name: 'Empty roots array' },
+      { test: () => matchesOpenGrokRoot('http://example.com/', null), expected: false, name: 'Null roots' },
+      { test: () => matchesOpenGrokRoot('http://example.com/', undefined), expected: false, name: 'Undefined roots' },
+      { test: () => matchesOpenGrokRoot('http://example.com/', ['', null, '  ']), expected: false, name: 'Array with empty/null values' },
+      // Whitespace handling
+      { test: () => matchesOpenGrokRoot('http://example.com/code/xref/p/f.c', ['  http://example.com/code  ']), expected: true, name: 'Root with surrounding whitespace' },
+    ];
+
+    edgeCaseTests.forEach(tc => {
+      const result = tc.test();
+      addResult(basepathTestsDiv, tc.name, result === tc.expected,
+        `Expected: ${tc.expected}, Got: ${result}`);
+    });
+  </script>
+</body>
+</html>
