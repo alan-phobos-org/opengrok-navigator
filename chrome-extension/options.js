@@ -210,7 +210,16 @@ async function saveSettings() {
   // Annotation settings
   const annotationStoragePath = document.getElementById('annotationStoragePath').value.trim();
   const annotationAuthorName = document.getElementById('annotationAuthorName').value.trim();
-  const annotationPollInterval = parseInt(document.getElementById('annotationPollInterval').value, 10) || 10;
+
+  // Validate poll interval
+  let annotationPollInterval = parseInt(document.getElementById('annotationPollInterval').value, 10);
+  if (isNaN(annotationPollInterval) || annotationPollInterval < 5) {
+    annotationPollInterval = 5;
+    document.getElementById('annotationPollInterval').value = 5;
+  } else if (annotationPollInterval > 300) {
+    annotationPollInterval = 300;
+    document.getElementById('annotationPollInterval').value = 300;
+  }
 
   // Save local storage (machine-specific)
   await chrome.storage.local.set({

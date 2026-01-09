@@ -257,21 +257,38 @@ chrome.runtime.onInstalled.addListener(() => {
 chrome.contextMenus.onClicked.addListener((info, tab) => {
   log.debug('Context menu clicked', { menuItemId: info.menuItemId });
 
+  if (!tab || !tab.id) {
+    log.error('Invalid tab in context menu click');
+    return;
+  }
+
   if (info.menuItemId === 'open-line-in-vscode') {
     const match = info.linkUrl.match(/#(\d+)/);
     const lineNumber = match ? match[1] : '1';
     chrome.tabs.sendMessage(tab.id, {
       action: 'openInVSCode',
       lineNumber: lineNumber
+    }, (response) => {
+      if (chrome.runtime.lastError) {
+        log.error('Failed to send context menu message', chrome.runtime.lastError);
+      }
     });
   } else if (info.menuItemId === 'open-file-in-vscode') {
     chrome.tabs.sendMessage(tab.id, {
       action: 'openInVSCode',
       lineNumber: '1'
+    }, (response) => {
+      if (chrome.runtime.lastError) {
+        log.error('Failed to send context menu message', chrome.runtime.lastError);
+      }
     });
   } else if (info.menuItemId === 'add-annotation') {
     chrome.tabs.sendMessage(tab.id, {
       action: 'addAnnotationAtCursor'
+    }, (response) => {
+      if (chrome.runtime.lastError) {
+        log.error('Failed to send context menu message', chrome.runtime.lastError);
+      }
     });
   }
 });
@@ -281,10 +298,18 @@ chrome.commands.onCommand.addListener((command) => {
   log.debug('Keyboard command received', { command });
 
   chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+    if (chrome.runtime.lastError) {
+      log.error('Failed to query tabs', chrome.runtime.lastError);
+      return;
+    }
     if (tabs[0]) {
       chrome.tabs.sendMessage(tabs[0].id, {
         action: 'keyboardShortcut',
         command: command
+      }, (response) => {
+        if (chrome.runtime.lastError) {
+          log.error('Failed to send keyboard shortcut', chrome.runtime.lastError);
+        }
       });
     }
   });

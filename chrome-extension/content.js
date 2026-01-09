@@ -25,6 +25,7 @@ async function loadConfig() {
       defaultWorkspaceRoot: ''
     }, (result) => {
       cachedConfig = result;
+      configLoadPromise = null; // Clear promise after resolution
       log.debug('Configuration loaded', cachedConfig);
       resolve(cachedConfig);
     });
@@ -612,33 +613,45 @@ function openFileInVSCode(filePath) {
   log.info('Opening file in VS Code', { project: parsed.project, path: cleanPath });
 
   // Send to background script to open in VS Code
-  chrome.runtime.sendMessage({
-    action: 'openInVSCode',
-    data: {
-      project: parsed.project,
-      filePath: cleanPath,
-      lineNumber: '1'
-    }
-  }, (response) => {
-    if (chrome.runtime.lastError) {
-      log.error('Failed to send message to background', chrome.runtime.lastError);
+  try {
+    if (!chrome.runtime || !chrome.runtime.id) {
+      log.error('Extension context invalidated');
+      alert('Extension was reloaded. Please refresh the page.');
       return;
     }
-    if (response && response.error) {
-      log.error('VS Code open failed', response.error);
-      alert(`Error: ${response.error}`);
-    } else if (response && response.uri) {
-      log.debug('Opening VS Code URI', response.uri);
-      const iframe = document.createElement('iframe');
-      iframe.style.display = 'none';
-      iframe.src = response.uri;
-      document.body.appendChild(iframe);
-      setTimeout(() => iframe.remove(), 1000);
 
-      // Close the finder
-      closeFileFinder();
-    }
-  });
+    chrome.runtime.sendMessage({
+      action: 'openInVSCode',
+      data: {
+        project: parsed.project,
+        filePath: cleanPath,
+        lineNumber: '1'
+      }
+    }, (response) => {
+      if (chrome.runtime.lastError) {
+        log.error('Failed to send message to background', chrome.runtime.lastError);
+        alert('Failed to communicate with extension. Please refresh the page.');
+        return;
+      }
+      if (response && response.error) {
+        log.error('VS Code open failed', response.error);
+        alert(`Error: ${response.error}`);
+      } else if (response && response.uri) {
+        log.debug('Opening VS Code URI', response.uri);
+        const iframe = document.createElement('iframe');
+        iframe.style.display = 'none';
+        iframe.src = response.uri;
+        document.body.appendChild(iframe);
+        setTimeout(() => iframe.remove(), 1000);
+
+        // Close the finder
+        closeFileFinder();
+      }
+    });
+  } catch (error) {
+    log.error('Exception sending message', error);
+    alert('Extension error. Please refresh the page.');
+  }
 }
 
 // Live-sync functionality
@@ -727,32 +740,44 @@ function syncCurrentLocation() {
 function openInVSCodeWithParams(project, filePath, lineNumber) {
   log.info('Opening in VS Code', { project, filePath, lineNumber });
 
-  chrome.runtime.sendMessage({
-    action: 'openInVSCode',
-    data: {
-      project: project,
-      filePath: filePath,
-      lineNumber: lineNumber
-    }
-  }, (response) => {
-    if (chrome.runtime.lastError) {
-      log.error('Failed to send message to background', chrome.runtime.lastError);
+  try {
+    if (!chrome.runtime || !chrome.runtime.id) {
+      log.error('Extension context invalidated');
+      alert('Extension was reloaded. Please refresh the page.');
       return;
     }
-    if (response && response.error) {
-      log.error('VS Code open failed', response.error);
-      alert(`Error: ${response.error}`);
-    } else if (response && response.uri) {
-      log.debug('Opening VS Code URI', response.uri);
-      // Use hidden iframe to trigger protocol handler without popup
-      const iframe = document.createElement('iframe');
-      iframe.style.display = 'none';
-      iframe.src = response.uri;
-      document.body.appendChild(iframe);
-      // Clean up after a short delay
-      setTimeout(() => iframe.remove(), 1000);
-    }
-  });
+
+    chrome.runtime.sendMessage({
+      action: 'openInVSCode',
+      data: {
+        project: project,
+        filePath: filePath,
+        lineNumber: lineNumber
+      }
+    }, (response) => {
+      if (chrome.runtime.lastError) {
+        log.error('Failed to send message to background', chrome.runtime.lastError);
+        alert('Failed to communicate with extension. Please refresh the page.');
+        return;
+      }
+      if (response && response.error) {
+        log.error('VS Code open failed', response.error);
+        alert(`Error: ${response.error}`);
+      } else if (response && response.uri) {
+        log.debug('Opening VS Code URI', response.uri);
+        // Use hidden iframe to trigger protocol handler without popup
+        const iframe = document.createElement('iframe');
+        iframe.style.display = 'none';
+        iframe.src = response.uri;
+        document.body.appendChild(iframe);
+        // Clean up after a short delay
+        setTimeout(() => iframe.remove(), 1000);
+      }
+    });
+  } catch (error) {
+    log.error('Exception sending message', error);
+    alert('Extension error. Please refresh the page.');
+  }
 }
 
 // Open file in VS Code

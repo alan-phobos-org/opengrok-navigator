@@ -35,7 +35,12 @@ const OGDebug = (function() {
           chrome.storage.sync.get({ debugLogLevel: 'OFF' }, resolve);
         } else {
           // Fallback for contexts without chrome.storage
-          resolve({ debugLogLevel: localStorage.getItem('og_debugLogLevel') || 'OFF' });
+          try {
+            resolve({ debugLogLevel: localStorage.getItem('og_debugLogLevel') || 'OFF' });
+          } catch (storageError) {
+            // localStorage may not be available in all contexts
+            resolve({ debugLogLevel: 'OFF' });
+          }
         }
       });
 
@@ -52,6 +57,7 @@ const OGDebug = (function() {
     } catch (e) {
       // Silent fail - logging not critical
       currentLevel = LOG_LEVELS.OFF;
+      isInitialized = true;
     }
   }
 

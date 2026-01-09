@@ -6,9 +6,13 @@
   'use strict';
 
   // Synchronous check from localStorage (set by previous page loads)
-  const cached = localStorage.getItem('darkModeEnabled');
-  if (cached === 'true') {
-    document.documentElement.dataset.theme = 'dark';
+  try {
+    const cached = localStorage.getItem('darkModeEnabled');
+    if (cached === 'true') {
+      document.documentElement.dataset.theme = 'dark';
+    }
+  } catch (e) {
+    // localStorage may not be available, continue with async storage
   }
 
   // Async update from chrome.storage for correctness (handles settings changes)
@@ -17,7 +21,11 @@
     const enabled = result.darkModeEnabled || false;
 
     // Update localStorage cache for next page load
-    localStorage.setItem('darkModeEnabled', enabled.toString());
+    try {
+      localStorage.setItem('darkModeEnabled', enabled.toString());
+    } catch (e) {
+      // localStorage may not be available, continue without caching
+    }
 
     // Apply current setting (may differ from cached if user just changed it)
     if (enabled) {
@@ -31,7 +39,12 @@
   chrome.storage.onChanged.addListener((changes, namespace) => {
     if (namespace === 'sync' && changes.darkModeEnabled) {
       const enabled = changes.darkModeEnabled.newValue;
-      localStorage.setItem('darkModeEnabled', enabled.toString());
+
+      try {
+        localStorage.setItem('darkModeEnabled', enabled.toString());
+      } catch (e) {
+        // localStorage may not be available, continue without caching
+      }
 
       if (enabled) {
         document.documentElement.dataset.theme = 'dark';

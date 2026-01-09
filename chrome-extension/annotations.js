@@ -830,23 +830,33 @@ class AnnotationManager {
   renderMarkdown(text) {
     if (!text) return '';
 
-    // Simple markdown rendering
+    // Simple markdown rendering - escape first, then apply markup
     let html = this.escapeHtml(text);
 
-    // Code blocks
-    html = html.replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>');
+    // Code blocks - already escaped, safe to wrap
+    html = html.replace(/```([\s\S]*?)```/g, (match, code) => {
+      return '<pre><code>' + code + '</code></pre>';
+    });
 
-    // Inline code
-    html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+    // Inline code - already escaped, safe to wrap
+    html = html.replace(/`([^`]+)`/g, (match, code) => {
+      return '<code>' + code + '</code>';
+    });
 
-    // Bold
-    html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+    // Bold - already escaped, safe to wrap
+    html = html.replace(/\*\*([^*]+)\*\*/g, (match, text) => {
+      return '<strong>' + text + '</strong>';
+    });
 
-    // Italic
-    html = html.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+    // Italic - already escaped, safe to wrap
+    html = html.replace(/\*([^*]+)\*/g, (match, text) => {
+      return '<em>' + text + '</em>';
+    });
 
-    // Lists (simple)
-    html = html.replace(/^[\s]*[-*]\s+(.+)$/gm, '<li>$1</li>');
+    // Lists (simple) - already escaped, safe to wrap
+    html = html.replace(/^[\s]*[-*]\s+(.+)$/gm, (match, text) => {
+      return '<li>' + text + '</li>';
+    });
     html = html.replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>');
 
     // Line breaks
