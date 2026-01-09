@@ -12,7 +12,7 @@ Bidirectional VS Code ↔ OpenGrok integration via extensions and CLI tool.
 
 ### Chrome Extension (`chrome-extension/`)
 - Ctrl+Click line numbers to open in VS Code via `vscode://` protocol
-- Floating button, hover preview, context menu, keyboard shortcuts
+- Floating button, context menu, keyboard shortcuts
 - **Inline annotations** for source code (new in v1.4.0)
 - Key files: [content.js](chrome-extension/content.js), [background.js](chrome-extension/background.js), [annotations.js](chrome-extension/annotations.js)
 
@@ -91,6 +91,36 @@ Bidirectional VS Code ↔ OpenGrok integration via extensions and CLI tool.
 **og CLI**: `make build-og` or `cd og && go build -o og .`
 **og_annotate**: `make build-og-annotate` or `cd og_annotate && go build -o og_annotate .`
 **Tests**: `make test` (runs all tests) or `make test-og-annotate`
+**Chrome E2E**: `cd chrome-extension && npm install && npm test` (Playwright, headless)
+
+## Test Maintenance
+
+**IMPORTANT**: When making design changes to the Chrome extension, the E2E tests MUST be updated.
+
+**Chrome Extension Tests** (`chrome-extension/tests/e2e/`):
+- `ui-injection.spec.ts`: Tests toolbar, buttons, file finder modal
+- `navigation.spec.ts`: Tests Ctrl+click, keyboard shortcuts
+- `annotations.spec.ts`: Tests annotation toggle, create, delete
+
+**Test Dependencies** (update tests when modifying):
+| File Changed | Tests to Update |
+|--------------|-----------------|
+| `content.js` | `ui-injection.spec.ts`, `navigation.spec.ts` |
+| `annotations.js` | `annotations.spec.ts` |
+| `content.css` | `ui-injection.spec.ts` (if class names change) |
+| `manifest.json` | All tests (if content script patterns change) |
+
+**Running Tests**:
+```bash
+cd chrome-extension
+npm install                    # First time only
+npx playwright install chromium # First time only
+npm test                       # Run all tests (headless) - ALWAYS USE THIS
+npm run test:headed           # Run with visible browser (debugging only)
+npm run test:ui               # Debug with Playwright UI (debugging only)
+```
+
+**IMPORTANT**: Always run `npm test` (headless mode) to verify tests pass. Never skip running tests after changes.
 
 ## OpenGrok Installer Scripts (`scripts/`)
 

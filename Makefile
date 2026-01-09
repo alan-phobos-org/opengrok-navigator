@@ -1,7 +1,7 @@
 # OpenGrok Navigator Build System
 # Builds VS Code extension, Chrome extension, and og CLI tool
 
-.PHONY: all clean build-vscode build-chrome build-og build-og-annotate build-og-annotate-all dist-og dist-og-annotate dist-scripts test-og test-og-annotate source dist dev help
+.PHONY: all clean build-vscode build-chrome build-og build-og-annotate build-og-annotate-all dist-og dist-og-annotate dist-scripts test-og test-og-annotate test-chrome source dist dev help
 
 # Go build flags for minimal binary size
 # -s: disable symbol table
@@ -22,6 +22,7 @@ help:
 	@echo "  dist-og           - Package og CLI as zip (source + binary)"
 	@echo "  dist-scripts      - Package VM setup scripts as zip"
 	@echo "  test-og           - Run og CLI unit tests"
+	@echo "  test-chrome       - Run Chrome extension E2E tests (headless)"
 	@echo "  build-og-annotate - Build og_annotate native host (current platform)"
 	@echo "  build-og-annotate-all - Cross-compile og_annotate for all platforms"
 	@echo "  test-og-annotate  - Run og_annotate unit tests"
@@ -210,6 +211,15 @@ dist: clean build-vscode build-chrome dist-og dist-og-annotate dist-scripts
 dev: build-vscode build-chrome build-og build-og-annotate
 	@echo "Development build complete"
 
+# Run Chrome extension E2E tests (headless)
+test-chrome:
+	@echo "Running Chrome extension E2E tests..."
+	cd chrome-extension && npm install
+	cd chrome-extension && npx playwright install chromium
+	cd chrome-extension && npm test
+	@echo "Chrome extension tests passed"
+
 # Run all tests
 test: test-og test-og-annotate
-	@echo "All tests passed"
+	@echo "All Go tests passed"
+	@echo "Note: Run 'make test-chrome' separately for Chrome E2E tests"

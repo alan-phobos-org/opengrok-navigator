@@ -612,31 +612,6 @@
   border-color: rgba(255, 255, 255, 0.1);
 }
 
-:root[data-theme="dark"] .vscode-preview {
-  background: #2d2d30;
-  border-color: #3e3e42;
-  color: #d4d4d4;
-}
-
-:root[data-theme="dark"] .vscode-preview-info {
-  background: #252526;
-  color: #d4d4d4;
-}
-
-:root[data-theme="dark"] .vscode-preview-path {
-  background: #1e1e1e;
-  border-color: #3e3e42;
-  color: #d4d4d4;
-}
-
-:root[data-theme="dark"] .vscode-preview-project {
-  color: #4fc3f7;
-}
-
-:root[data-theme="dark"] .vscode-preview-line {
-  color: #858585;
-}
-
 :root[data-theme="dark"] .vscode-finder-modal {
   background: rgba(0, 0, 0, 0.8);
 }

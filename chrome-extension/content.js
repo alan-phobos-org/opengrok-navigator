@@ -133,88 +133,6 @@ function parseSearchResultLink(linkElement) {
   };
 }
 
-// Create hover preview popup
-let hoverTimeout = null;
-let currentPreview = null;
-let isMouseOverPreview = false;
-let isMouseOverAnchor = false;
-
-function createPreview(anchor, lineNumber, project = null, filePath = null) {
-  // If project/filePath not provided, parse from URL
-  if (!project || !filePath) {
-    const parsed = parseOpenGrokUrl();
-    if (!parsed) return;
-    project = parsed.project;
-    filePath = parsed.filePath;
-  }
-
-  // Remove existing preview
-  if (currentPreview) {
-    currentPreview.remove();
-    currentPreview = null;
-  }
-
-  const preview = document.createElement('div');
-  preview.className = 'vscode-preview';
-  preview.innerHTML = `
-    <div class="vscode-preview-header">
-      <span class="vscode-preview-title">Open in VS Code</span>
-      <button class="vscode-preview-close">&times;</button>
-    </div>
-    <div class="vscode-preview-info">
-      <div class="vscode-preview-project">${escapeHtml(project)}</div>
-      <div class="vscode-preview-path">${escapeHtml(filePath)}</div>
-      <div class="vscode-preview-line">Line ${escapeHtml(String(lineNumber))}</div>
-    </div>
-    <button class="vscode-preview-open">Open</button>
-  `;
-
-  // Position near the anchor with gap for easier mouse movement
-  const rect = anchor.getBoundingClientRect();
-  preview.style.top = `${rect.bottom + window.scrollY + 2}px`;
-  preview.style.left = `${rect.left + window.scrollX}px`;
-
-  document.body.appendChild(preview);
-  currentPreview = preview;
-
-  // Add event listeners
-  preview.querySelector('.vscode-preview-close').addEventListener('click', () => {
-    preview.remove();
-    currentPreview = null;
-    isMouseOverPreview = false;
-  });
-
-  preview.querySelector('.vscode-preview-open').addEventListener('click', () => {
-    openInVSCodeWithParams(project, filePath, lineNumber);
-    preview.remove();
-    currentPreview = null;
-    isMouseOverPreview = false;
-  });
-
-  // Keep preview open when hovering over it
-  preview.addEventListener('mouseenter', () => {
-    isMouseOverPreview = true;
-    clearTimeout(hoverTimeout);
-  });
-
-  preview.addEventListener('mouseleave', () => {
-    isMouseOverPreview = false;
-    hoverTimeout = setTimeout(() => {
-      if (!isMouseOverAnchor && !isMouseOverPreview && currentPreview) {
-        currentPreview.remove();
-        currentPreview = null;
-      }
-    }, 300);
-  });
-}
-
-function hidePreview() {
-  if (!isMouseOverPreview && !isMouseOverAnchor && currentPreview) {
-    currentPreview.remove();
-    currentPreview = null;
-  }
-}
-
 // Escape HTML to prevent XSS
 function escapeHtml(text) {
   if (text === null || text === undefined) return '';
@@ -315,7 +233,7 @@ function enhanceUI() {
 
   // File finder button (always enabled)
   const finderButton = document.createElement('button');
-  finderButton.id = 'vscode-finder-button';
+  finderButton.id = 'og-finder-button';
   finderButton.textContent = 'Find File';
   finderButton.className = 'vscode-finder-btn';
   finderButton.title = 'Quick file finder (press T)';
