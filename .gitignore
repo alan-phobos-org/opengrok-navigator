@@ -10,3 +10,8 @@ LEARNING.md
 
 # og CLI binary
 og/og
+
+# Go binaries
+og/og
+og_annotate/og_annotate
+*.exe
