@@ -169,6 +169,15 @@ Add your proxy configuration to `extra-openai-models.yaml`:
   api_key_name: my-proxy-key
 ```
 
+Example configuration for the `gpt-oss-120b` model:
+
+```yaml
+- model_id: gpt-oss-120b
+  model_name: gpt-oss-120b
+  api_base: "http://localhost:8080/v1"
+  api_key_name: openai
+```
+
 Configuration options:
 - `model_id`: The name you'll use to reference this model in llm
 - `model_name`: The model identifier to pass to the API
