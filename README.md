@@ -1,32 +1,36 @@
 # OpenGrok Navigator
 
-**Seamless bidirectional navigation between OpenGrok and VS Code** 🚀
+Bidirectional navigation between OpenGrok and VS Code.
 
-Bridge the gap between your browser-based code exploration and local development environment with two powerful extensions that work together to supercharge your workflow.
+This project provides extensions for both VS Code and Chrome that enable seamless navigation between OpenGrok's web interface and your local development environment.
 
-## ✨ Features at a Glance
+## Features
 
-### 🔵 VS Code Extension
-Navigate **FROM** VS Code **TO** OpenGrok with instant search and navigation:
-- **⚡ Quick Jump**: Press `Ctrl+Shift+G O` to open any line in OpenGrok instantly
-- **🔍 Integrated Search**: Search OpenGrok directly from VS Code with results in your sidebar
-- **📋 Smart URLs**: Copy OpenGrok URLs with perfect line numbers
-- **🎯 Project-Aware**: Automatically maps your workspace to OpenGrok projects
-- **🔐 Secure Auth**: Built-in HTTP Basic Authentication with encrypted password storage
-- **🌐 Cross-Project Search**: Search across all OpenGrok projects from one command
+### VS Code Extension
 
-### 🟢 Chrome Extension
-Navigate **FROM** OpenGrok **TO** VS Code with one click:
-- **✨ Click-to-Open**: Ctrl+Click any line number to open directly in VS Code
-- **🔄 Live Sync**: Toggle real-time synchronization - VS Code follows your OpenGrok browsing
-- **👁️ Hover Previews**: See file info before opening
-- **⚙️ Smart Mapping**: Configure custom project-to-workspace mappings
-- **🔍 Quick File Finder**: Press `T` for fuzzy file search (GitHub-style)
-- **🎨 Floating Toolbar**: Unobtrusive buttons that appear only on file pages
+Navigate from VS Code to OpenGrok:
 
-## 🚀 Quick Start
+- **Quick Jump**: Press `Ctrl+Shift+G O` to open the current line in OpenGrok
+- **Integrated Search**: Search OpenGrok directly from VS Code with results displayed in the sidebar
+- **URL Copying**: Copy OpenGrok URLs with accurate line numbers
+- **Project Mapping**: Automatically maps your workspace to OpenGrok projects
+- **Authentication**: HTTP Basic Authentication with encrypted password storage
+- **Cross-Project Search**: Search across all OpenGrok projects from a single command
 
-### Installing the VS Code Extension
+### Chrome Extension
+
+Navigate from OpenGrok to VS Code:
+
+- **Click-to-Open**: Ctrl+Click any line number to open the file directly in VS Code
+- **Live Sync**: Real-time synchronization mode where VS Code follows your OpenGrok browsing
+- **Hover Previews**: View file information before opening
+- **Project Mapping**: Configure custom project-to-workspace directory mappings
+- **Quick File Finder**: Press `T` for fuzzy file search (similar to GitHub)
+- **Floating Toolbar**: Context-sensitive buttons that appear on file pages
+
+## Installation
+
+### VS Code Extension
 
 ```bash
 cd vscode-extension
@@ -34,9 +38,10 @@ npm install
 npm run compile
 ```
 
-Then press `F5` in VS Code or package with `vsce package` and install the `.vsix` file.
+Press `F5` in VS Code to run in development mode, or package with `vsce package` and install the resulting `.vsix` file.
 
-**Configure your OpenGrok instance:**
+Configure your OpenGrok instance in VS Code settings:
+
 ```json
 {
   "opengrok-navigator.baseUrl": "http://localhost:8080/source"
@@ -49,78 +54,67 @@ Then press `F5` in VS Code or package with `vsce package` and install the `.vsix
 - `Ctrl+Shift+G V` - Search and view results in VS Code
 - `Ctrl+Shift+G S` - Search and open in browser
 
-### Installing the Chrome Extension
+### Chrome Extension
 
 1. Navigate to `chrome://extensions/`
 2. Enable "Developer mode"
 3. Click "Load unpacked"
 4. Select the `chrome-extension` directory
 
-**Configure project mappings** in the extension options to map OpenGrok projects to your local workspace directories.
+Configure project mappings in the extension options to map OpenGrok projects to your local workspace directories.
 
-## 💡 Why Use This?
+## Use Cases
 
-**For Code Explorers**: Browse massive codebases in OpenGrok's powerful web interface, then instantly open files locally for editing.
+- **Large Codebases**: Navigate projects too large for complete local checkout
+- **Code Review**: Browse code in OpenGrok while editing locally in VS Code
+- **Team Collaboration**: Share OpenGrok URLs that teammates can open locally
+- **Historical Analysis**: Search historical versions in OpenGrok, edit current versions in VS Code
 
-**For Researchers**: Search across projects in OpenGrok, then seamlessly jump into VS Code to make changes.
-
-**For Teams**: Share OpenGrok URLs with perfect line numbers, knowing teammates can open them locally with one click.
-
-## 🎯 Perfect For
-
-- 📚 **Large Codebases**: Navigate projects too big for local checkout
-- 🔍 **Code Archaeology**: Search historical versions in OpenGrok, edit current in VS Code
-- 🤝 **Team Collaboration**: Share precise code references that open locally
-- 🎓 **Learning**: Study open-source projects with back-and-forth navigation
-- 🔧 **System Programming**: Essential for OS/kernel development workflows
-
-## 📖 Documentation
-
-- [Chrome Extension Details](chrome-extension/README.md)
-- [Design Documentation](docs/)
-- [Feature Roadmap](docs/FEATURE_SUGGESTIONS.md)
-
-## 🛠️ Advanced Features
+## Advanced Features
 
 ### Multi-Project Workspaces
+
 Enable `useTopLevelFolder` mode when your workspace contains multiple projects mapped to different OpenGrok projects.
 
 ### Authentication
+
 Supports HTTP Basic Authentication with secure password storage via VS Code's SecretStorage API.
 
 ### Live Sync
-The Chrome extension can automatically open files in VS Code as you navigate through OpenGrok - perfect for code reviews and exploration sessions.
+
+The Chrome extension can automatically open files in VS Code as you navigate through OpenGrok, useful for code reviews and exploration sessions.
 
 ### Search Integration
+
 Search results appear as an interactive tree view in VS Code with:
 - Syntax-highlighted search terms
 - One-click navigation to results
 - Local file opening when available
 - Fallback to browser for remote-only files
 
-## 🔧 Requirements
+## Requirements
 
 - **VS Code**: 1.74.0 or higher
 - **Chrome/Edge**: Modern Chromium-based browser
 - **OpenGrok**: Any version (REST API support recommended, HTML fallback included)
-- **VS Code URI Handler**: Must be registered (happens automatically on install)
+- **VS Code URI Handler**: Registered automatically on extension install
 
-## 📝 How It Works
+## How It Works
 
-**VS Code → OpenGrok**
-The extension constructs OpenGrok URLs from your file path and line number, supporting both single and multi-project workspaces.
+**VS Code to OpenGrok**: The extension constructs OpenGrok URLs from your file path and line number, supporting both single and multi-project workspaces.
 
-**OpenGrok → VS Code**
-The Chrome extension uses the `vscode://` URI protocol to communicate with VS Code. Configure project mappings to tell it where your local repositories live.
+**OpenGrok to VS Code**: The Chrome extension uses the `vscode://` URI protocol to communicate with VS Code. Configure project mappings to specify where your local repositories are located.
 
-## 🤝 Contributing
+## Documentation
 
-Issues and pull requests welcome! See [CLAUDE.md](CLAUDE.md) for development notes.
+- [Chrome Extension Details](chrome-extension/README.md)
+- [Design Documentation](docs/)
+- [Feature Roadmap](docs/FEATURE_SUGGESTIONS.md)
 
-## 📄 License
+## Contributing
 
-MIT License - See LICENSE file for details
+Issues and pull requests are welcome. See [CLAUDE.md](CLAUDE.md) for development notes.
 
----
+## License
 
-**Made for developers who live between their editor and their codebase** 💙
+MIT License - See LICENSE file for details.
