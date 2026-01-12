@@ -190,12 +190,12 @@ EOF
         echo "Running linters..."
         (cd og && gofmt -l -w .)
         (cd og_annotate && gofmt -l -w .)
-        if command -v staticcheck >/dev/null 2>&1; then
-            (cd og && staticcheck ./...)
-            (cd og_annotate && staticcheck ./...)
-        else
-            echo "staticcheck not installed, skipping"
+        if ! command -v staticcheck >/dev/null 2>&1; then
+            echo "ERROR: staticcheck not installed. Install with: go install honnef.co/go/tools/cmd/staticcheck@latest"
+            exit 1
         fi
+        (cd og && staticcheck ./...)
+        (cd og_annotate && staticcheck ./...)
         ;;
     check)
         # Full pre-commit check: lint, test, build
