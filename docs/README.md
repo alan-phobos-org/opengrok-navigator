@@ -1,33 +1,39 @@
 # Documentation
 
-This folder contains design documents, implementation notes, and development planning files for OpenGrok Navigator.
+## Overview
 
-## Contents
+- [**PLAN.md**](PLAN.md) - Project vision, current stage, and backlog
+- [**DESIGN.md**](DESIGN.md) - High-level architecture and design decisions
 
-### Design & Architecture
-- **[DESIGN_OPENGROK_TO_VSCODE.md](DESIGN_OPENGROK_TO_VSCODE.md)** - Architecture and design decisions for Chrome extension (browser → VS Code navigation)
-- **[QUICK_FILE_FINDER_DESIGN.md](QUICK_FILE_FINDER_DESIGN.md)** - Quick file finder feature design and implementation rationale
-- **[DARK_MODE_REDESIGN.md](DARK_MODE_REDESIGN.md)** - Dark mode implementation approach (avoiding FOUC)
+## User Guides
 
-### Setup & Installation
-- **[OPENGROK_OFFLINE_SETUP.md](OPENGROK_OFFLINE_SETUP.md)** - Complete guide for offline OpenGrok installation
-- **[SCRIPTS_DESIGN.md](SCRIPTS_DESIGN.md)** - Design documentation for automated installation scripts
+- [**QUICKSTART.md**](QUICKSTART.md) - Quick installation and usage guide
+- [**BUILD.md**](BUILD.md) - Build system and development instructions
+- [**OPENGROK_OFFLINE_SETUP.md**](OPENGROK_OFFLINE_SETUP.md) - OpenGrok server installation
 
-### Feature Planning
-- **[FEATURE_SUGGESTIONS.md](FEATURE_SUGGESTIONS.md)** - Future feature ideas and enhancements
-- **[TODO.md](TODO.md)** - Active development tasks and known issues
+## Feature Design Documents
 
-## For Users
+### Chrome Extension
+- [DESIGN_OPENGROK_TO_VSCODE.md](DESIGN_OPENGROK_TO_VSCODE.md) - Browser-to-editor navigation architecture
+- [QUICK_FILE_FINDER_DESIGN.md](QUICK_FILE_FINDER_DESIGN.md) - Quick file finder implementation
+- [DARK_MODE_REDESIGN.md](DARK_MODE_REDESIGN.md) - FOUC-free dark mode approach
 
-If you're looking for user documentation, see:
-- Main project README: [../README.md](../README.md)
-- Chrome extension guide: [../chrome-extension/README.md](../chrome-extension/README.md)
-- Build instructions: [../BUILD.md](../BUILD.md)
-- Quick start: [../QUICKSTART.md](../QUICKSTART.md)
+### Annotations
+- [annotation-feature-design.md](annotation-feature-design.md) - Inline annotation system design
+- [annotation-storage-v2-design.md](annotation-storage-v2-design.md) - JSON protocol and storage format
 
-## For Developers
+### Scripts
+- [SCRIPTS_DESIGN.md](SCRIPTS_DESIGN.md) - OpenGrok installer script design
+- [TESTING_SETUP_SCRIPTS.md](TESTING_SETUP_SCRIPTS.md) - Test VM automation
 
-If you're contributing to the project:
-1. Read [CLAUDE.md](../CLAUDE.md) for development guidelines and technical architecture
-2. Check [FEATURE_SUGGESTIONS.md](FEATURE_SUGGESTIONS.md) for upcoming features
-3. Review [TODO.md](TODO.md) for current development priorities
+### Testing
+- [testable-architecture-design.md](testable-architecture-design.md) - Test architecture
+- [TESTING_IMPROVEMENTS.md](TESTING_IMPROVEMENTS.md) - Test infrastructure enhancements
+
+## Planning & Ideas
+
+- [FEATURE_SUGGESTIONS.md](FEATURE_SUGGESTIONS.md) - Future feature proposals
+
+## Meta
+
+- [LEARNING.md](LEARNING.md) - Development notes and observations from building with AI agents

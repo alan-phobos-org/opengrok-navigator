@@ -136,7 +136,6 @@ case "${1:-help}" in
         cp install.bat dist/package/
         cp README.md dist/package/
         cp LICENSE dist/package/
-        cp BUILD.md dist/package/
         cp CHANGELOG.md dist/package/
         cp docs/*.md dist/package/docs/ 2>/dev/null || true
         cat > dist/package/VERSION.txt <<EOF
@@ -150,9 +149,8 @@ Contents:
 - opengrok-scripts.zip - VM setup scripts for OpenGrok server
 - install.sh - Unified installer for macOS/Linux
 - install.ps1/bat - Unified installer for Windows
-- docs/ - Feature documentation and design docs
+- docs/ - Documentation (BUILD.md, QUICKSTART.md, design docs)
 - README.md - User documentation
-- BUILD.md - Build instructions
 - CHANGELOG.md - Version history
 - LICENSE - MIT license
 EOF

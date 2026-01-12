@@ -112,7 +112,7 @@ make source
 
 ## More Information
 
-- Full documentation: [README.md](README.md)
+- Full documentation: [README.md](../README.md)
 - Build instructions: [BUILD.md](BUILD.md)
-- Design decisions: [docs/QUICK_FILE_FINDER_DESIGN.md](docs/QUICK_FILE_FINDER_DESIGN.md)
-- OpenGrok setup guide: [docs/OPENGROK_OFFLINE_SETUP.md](docs/OPENGROK_OFFLINE_SETUP.md)
+- Design decisions: [QUICK_FILE_FINDER_DESIGN.md](QUICK_FILE_FINDER_DESIGN.md)
+- OpenGrok setup guide: [OPENGROK_OFFLINE_SETUP.md](OPENGROK_OFFLINE_SETUP.md)

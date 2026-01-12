@@ -5,74 +5,64 @@ Bidirectional navigation between OpenGrok and VS Code.
 ## Features
 
 ### VS Code Extension
-
 - Open current line in OpenGrok (`Ctrl+Shift+G O`)
-- Search OpenGrok from VS Code with results in sidebar
+- Search OpenGrok with results in sidebar
 - Copy OpenGrok URLs with line numbers
 - HTTP Basic Authentication support
-- Cross-project search
 
 ### Chrome Extension
-
 - Ctrl+Click line numbers to open in VS Code
-- Live sync mode (VS Code follows OpenGrok browsing)
 - Quick file finder (`T` key)
-- Project-to-workspace directory mappings
+- Live sync mode (VS Code follows browsing)
+- Inline source code annotations
 
-## Installation
+### og CLI Tool
+- Command-line OpenGrok search
+- Call graph tracing with `og trace`
+- Multiple search types: full, def, symbol, path, hist
 
-### VS Code Extension
+## Quick Start
 
 ```bash
-cd vscode-extension
-npm install
-npm run compile
+# Build and install
+./build.sh dist
+./install.sh
+
+# Configure VS Code extension
+# Set opengrok-navigator.baseUrl in VS Code settings
+
+# Configure Chrome extension
+# Load unpacked from ~/.opengrok-navigator/chrome-extension/
+# Set project mappings in extension options
 ```
 
-Press `F5` to run in development mode, or package with `vsce package`.
+See [docs/QUICKSTART.md](docs/QUICKSTART.md) for detailed setup.
 
-Configure in VS Code settings:
+## Keyboard Shortcuts
 
-```json
-{
-  "opengrok-navigator.baseUrl": "http://localhost:8080/source"
-}
-```
+| Action | VS Code | Chrome |
+|--------|---------|--------|
+| Open in OpenGrok | `Ctrl+Shift+G O` | - |
+| Copy URL | `Ctrl+Shift+G C` | - |
+| Search (VS Code) | `Ctrl+Shift+G V` | - |
+| Quick File Finder | - | `T` |
+| Open in VS Code | - | `Ctrl+Click` |
+| Create Annotation | - | `C` (hover on line) |
 
-Keyboard shortcuts:
-- `Ctrl+Shift+G O` - Open in OpenGrok
-- `Ctrl+Shift+G C` - Copy URL
-- `Ctrl+Shift+G V` - Search (results in VS Code)
-- `Ctrl+Shift+G S` - Search (results in browser)
+## Documentation
 
-### Chrome Extension
-
-1. Navigate to `chrome://extensions/`
-2. Enable "Developer mode"
-3. Click "Load unpacked" and select `chrome-extension`
-
-Configure project mappings in extension options.
-
-## Advanced Configuration
-
-### Multi-Project Workspaces
-
-Enable `useTopLevelFolder` when your workspace contains multiple projects mapped to different OpenGrok projects.
-
-### Authentication
-
-HTTP Basic Authentication with password storage via VS Code's SecretStorage API.
+- [**Quick Start**](docs/QUICKSTART.md) - Installation and configuration
+- [**Build Guide**](docs/BUILD.md) - Development and build instructions
+- [**Project Plan**](docs/PLAN.md) - Vision, roadmap, and backlog
+- [**Architecture**](docs/DESIGN.md) - System design and decisions
+- [Full documentation index](docs/README.md)
 
 ## Requirements
 
 - VS Code 1.74.0+
 - Chromium-based browser
-- OpenGrok (REST API preferred, HTML fallback supported)
-
-## Documentation
-
-- [Chrome Extension](chrome-extension/README.md)
-- [Design Docs](docs/)
+- Go 1.21+ (for building og CLI and og_annotate)
+- OpenGrok server (REST API preferred, HTML fallback supported)
 
 ## License
 

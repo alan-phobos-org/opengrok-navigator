@@ -1,8 +1,12 @@
-# OpenGrok Navigator - Dev Notes
+# OpenGrok Navigator - Agent Instructions
+
+> **Note**: This file was renamed from `CLAUDE.md` to `AGENTS.md` to support multiple AI agents.
 
 Bidirectional VS Code ↔ OpenGrok integration via extensions and CLI tool.
 
-**Current Version:** v1.4.0
+**Current Version:** v1.5.0
+
+**Documentation**: See [docs/](docs/) for architecture, build instructions, and design documents.
 
 ## Components
 
