@@ -1,17 +1,46 @@
 #!/bin/bash
 set -euo pipefail
 
-# Get version from package.json
+# Constants
+GO_LDFLAGS="-s -w"
+PLATFORMS=(
+    "linux:amd64:"
+    "linux:arm64:"
+    "darwin:amd64:"
+    "darwin:arm64:"
+    "windows:amd64:.exe"
+    "windows:arm64:.exe"
+)
+
 get_version() {
-    grep '"version"' vscode-extension/package.json | head -1 | sed 's/.*"version": "\(.*\)".*/\1/'
+    grep -o '"version": "[^"]*"' vscode-extension/package.json | head -1 | cut -d'"' -f4
+}
+
+# Build og_annotate for a single platform (os:arch:ext)
+build_og_annotate_platform() {
+    local os="${1%%:*}"
+    local rest="${1#*:}"
+    local arch="${rest%%:*}"
+    local ext="${rest#*:}"
+    echo "  Building for ${os} ${arch}..."
+    (cd og_annotate && GOOS="$os" GOARCH="$arch" go build -ldflags="$GO_LDFLAGS" -o "bin/og_annotate-${os}-${arch}${ext}" .)
+}
+
+# Copy distribution artifacts to a target directory
+copy_dist_artifacts() {
+    local target="$1"
+    cp vscode-extension/*.vsix "$target/" 2>/dev/null || true
+    cp chrome-extension/opengrok-navigator-chrome.zip "$target/" 2>/dev/null || true
+    cp og/og-cli.zip "$target/" 2>/dev/null || true
+    cp og_annotate/og_annotate.zip "$target/" 2>/dev/null || true
+    cp scripts/opengrok-scripts.zip "$target/" 2>/dev/null || true
 }
 
 case "${1:-help}" in
     clean)
         echo "Cleaning build artifacts..."
         rm -rf dist/
-        rm -rf vscode-extension/out/
-        rm -rf vscode-extension/*.vsix
+        rm -rf vscode-extension/out/ vscode-extension/*.vsix
         rm -rf chrome-extension/*.zip
         rm -f og/og og/og-* og/*.zip
         rm -f og_annotate/og_annotate og_annotate/og_annotate-* og_annotate/og_annotate.exe og_annotate/*.zip
@@ -21,29 +50,16 @@ case "${1:-help}" in
         ;;
     build-vscode)
         echo "Building VS Code extension..."
-        (cd vscode-extension && npm install)
-        (cd vscode-extension && npm run compile)
-        (cd vscode-extension && npx vsce package --no-git-tag-version)
+        (cd vscode-extension && npm install && npm run compile && npx vsce package --no-git-tag-version)
         echo "VS Code extension built successfully"
         ;;
     build-chrome)
         echo "Packaging Chrome extension..."
         mkdir -p chrome-extension/dist
         (cd chrome-extension && zip -r opengrok-navigator-chrome.zip \
-            manifest.json \
-            background.js \
-            content.js \
-            content.css \
-            debug.js \
-            annotations.js \
-            annotations.css \
-            dark-mode-init.js \
-            dark-theme.css \
-            options.html \
-            options.js \
-            icons/*.png \
-            README.md \
-            TESTING.md \
+            manifest.json background.js content.js content.css debug.js \
+            annotations.js annotations.css dark-mode-init.js dark-theme.css \
+            options.html options.js icons/*.png README.md TESTING.md \
             -x "*.zip" "dist/*" ".DS_Store" "tests/*")
         echo "Chrome extension packaged successfully"
         ;;
@@ -54,30 +70,20 @@ case "${1:-help}" in
         ;;
     build-og-annotate)
         echo "Building og_annotate native host..."
-        (cd og_annotate && go build -ldflags="-s -w" -o og_annotate .)
+        (cd og_annotate && go build -ldflags="$GO_LDFLAGS" -o og_annotate .)
         echo "og_annotate built successfully"
         ;;
     build-og-annotate-all)
         echo "Cross-compiling og_annotate for all platforms..."
         mkdir -p og_annotate/bin
-        echo "  Building for Linux AMD64..."
-        (cd og_annotate && GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o bin/og_annotate-linux-amd64 .)
-        echo "  Building for Linux ARM64..."
-        (cd og_annotate && GOOS=linux GOARCH=arm64 go build -ldflags="-s -w" -o bin/og_annotate-linux-arm64 .)
-        echo "  Building for macOS AMD64..."
-        (cd og_annotate && GOOS=darwin GOARCH=amd64 go build -ldflags="-s -w" -o bin/og_annotate-darwin-amd64 .)
-        echo "  Building for macOS ARM64..."
-        (cd og_annotate && GOOS=darwin GOARCH=arm64 go build -ldflags="-s -w" -o bin/og_annotate-darwin-arm64 .)
-        echo "  Building for Windows AMD64..."
-        (cd og_annotate && GOOS=windows GOARCH=amd64 go build -ldflags="-s -w" -o bin/og_annotate-windows-amd64.exe .)
-        echo "  Building for Windows ARM64..."
-        (cd og_annotate && GOOS=windows GOARCH=arm64 go build -ldflags="-s -w" -o bin/og_annotate-windows-arm64.exe .)
+        for platform in "${PLATFORMS[@]}"; do
+            build_og_annotate_platform "$platform"
+        done
         echo "All platforms built successfully"
         echo "Binary sizes:"
         ls -lh og_annotate/bin/
         ;;
-    build)
-        # Build all components
+    build|dev)
         $0 build-vscode
         $0 build-chrome
         $0 build-og
@@ -87,33 +93,18 @@ case "${1:-help}" in
     dist-og)
         $0 build-og
         echo "Packaging og CLI..."
-        (cd og && zip -r og-cli.zip \
-            *.go \
-            go.mod \
-            go.sum \
-            README.md \
-            og \
-            -x "*_test.go")
+        (cd og && zip -r og-cli.zip *.go go.mod go.sum README.md og -x "*_test.go")
         echo "og CLI packaged successfully"
         ;;
     dist-og-annotate)
         $0 build-og-annotate-all
         echo "Packaging og_annotate..."
-        (cd og_annotate && zip -r og_annotate.zip \
-            README.md \
-            install.sh \
-            install.bat \
-            install.ps1 \
-            bin/)
+        (cd og_annotate && zip -r og_annotate.zip README.md install.sh install.bat install.ps1 bin/)
         echo "og_annotate packaged successfully"
         ;;
     dist-scripts)
         echo "Packaging VM setup scripts..."
-        (cd scripts && zip -r opengrok-scripts.zip \
-            install-opengrok.sh \
-            download-dependencies.sh \
-            README.md \
-            QUICKSTART.txt)
+        (cd scripts && zip -r opengrok-scripts.zip install-opengrok.sh download-dependencies.sh README.md QUICKSTART.txt)
         echo "VM setup scripts packaged successfully"
         ;;
     dist)
@@ -124,23 +115,13 @@ case "${1:-help}" in
         $0 dist-og-annotate
         $0 dist-scripts
         echo "Creating distribution package..."
-        mkdir -p dist/package/docs
         VERSION=$(get_version)
-        cp vscode-extension/*.vsix dist/package/ 2>/dev/null || true
-        cp chrome-extension/opengrok-navigator-chrome.zip dist/package/ 2>/dev/null || true
-        cp og/og-cli.zip dist/package/ 2>/dev/null || true
-        cp og_annotate/og_annotate.zip dist/package/ 2>/dev/null || true
-        cp scripts/opengrok-scripts.zip dist/package/ 2>/dev/null || true
-        cp install.sh dist/package/
-        cp install.ps1 dist/package/
-        cp install.bat dist/package/
-        cp README.md dist/package/
-        cp LICENSE dist/package/
-        cp CHANGELOG.md dist/package/
-        cp docs/*.md dist/package/docs/ 2>/dev/null || true
-        cat > dist/package/VERSION.txt <<EOF
-# OpenGrok Navigator v$VERSION
-
+        PACKAGE_NAME="opengrok-navigator-v$VERSION"
+        mkdir -p "dist/$PACKAGE_NAME/docs"
+        copy_dist_artifacts "dist/$PACKAGE_NAME"
+        cp install.sh install.ps1 install.bat README.md LICENSE CHANGELOG.md "dist/$PACKAGE_NAME/"
+        cp docs/*.md "dist/$PACKAGE_NAME/docs/" 2>/dev/null || true
+        cat > "dist/$PACKAGE_NAME/VERSION.txt" <<'EOF'
 Contents:
 - opengrok-navigator-*.vsix - VS Code extension
 - opengrok-navigator-chrome.zip - Chrome extension (with annotations)
@@ -149,13 +130,10 @@ Contents:
 - opengrok-scripts.zip - VM setup scripts for OpenGrok server
 - install.sh - Unified installer for macOS/Linux
 - install.ps1/bat - Unified installer for Windows
-- docs/ - Documentation (BUILD.md, QUICKSTART.md, design docs)
-- README.md - User documentation
-- CHANGELOG.md - Version history
-- LICENSE - MIT license
+- docs/ - Documentation
 EOF
-        (cd dist && zip -r "opengrok-navigator-v$VERSION.zip" package/)
-        rm -rf dist/package/
+        (cd dist && zip -r "$PACKAGE_NAME.zip" "$PACKAGE_NAME/")
+        rm -rf "dist/$PACKAGE_NAME/"
         echo ""
         echo "=========================================="
         echo "Build complete! Distribution package:"
@@ -225,45 +203,32 @@ EOF
         $0 test
         $0 build
         ;;
-    dev)
-        # Quick development build (no clean)
-        $0 build-vscode
-        $0 build-chrome
-        $0 build-og
-        $0 build-og-annotate
-        echo "Development build complete"
-        ;;
     deploy-local)
+        VERSION=$(get_version)
+        PACKAGE_NAME="opengrok-navigator-v$VERSION"
+        DEPLOY_DIR="dist/deploy-local/$PACKAGE_NAME"
+
         if [ "${2:-}" = "--skip-tests" ]; then
             echo "Skipping tests for rapid deployment..."
             $0 clean
             $0 build
             $0 dist-og
             $0 dist-og-annotate
+            rm -rf dist/deploy-local
+            mkdir -p "$DEPLOY_DIR"
+            copy_dist_artifacts "$DEPLOY_DIR"
+            cp install.sh "$DEPLOY_DIR/"
         else
             $0 dist
+            rm -rf dist/deploy-local
+            mkdir -p dist/deploy-local
+            unzip -q "dist/$PACKAGE_NAME.zip" -d dist/deploy-local
         fi
+
         echo ""
-        echo "Running unified installer from dist package..."
-        echo ""
-        VERSION=$(get_version)
-        DIST_ZIP="dist/opengrok-navigator-v$VERSION.zip"
-        DEPLOY_DIR="dist/deploy-local"
-        rm -rf "$DEPLOY_DIR"
-        mkdir -p "$DEPLOY_DIR"
-        # Create package structure directly if skipping tests
-        if [ "${2:-}" = "--skip-tests" ]; then
-            mkdir -p "$DEPLOY_DIR/package"
-            cp vscode-extension/*.vsix "$DEPLOY_DIR/package/" 2>/dev/null || true
-            cp chrome-extension/opengrok-navigator-chrome.zip "$DEPLOY_DIR/package/" 2>/dev/null || true
-            cp og/og-cli.zip "$DEPLOY_DIR/package/" 2>/dev/null || true
-            cp og_annotate/og_annotate.zip "$DEPLOY_DIR/package/" 2>/dev/null || true
-            cp install.sh "$DEPLOY_DIR/package/"
-        else
-            unzip -q "$DIST_ZIP" -d "$DEPLOY_DIR"
-        fi
-        (cd "$DEPLOY_DIR/package" && ./install.sh)
-        rm -rf "$DEPLOY_DIR"
+        echo "Running unified installer..."
+        (cd "$DEPLOY_DIR" && ./install.sh)
+        rm -rf dist/deploy-local
         echo ""
         echo "Local deployment complete"
         ;;
@@ -394,13 +359,12 @@ EOF
         echo "Usage: $0 <command>"
         echo ""
         echo "Build Commands:"
-        echo "  build              Build all components (VS Code, Chrome, og, og_annotate)"
+        echo "  build, dev         Build all components (VS Code, Chrome, og, og_annotate)"
         echo "  build-vscode       Build VS Code extension (.vsix)"
         echo "  build-chrome       Package Chrome extension (.zip)"
         echo "  build-og           Build og CLI tool"
         echo "  build-og-annotate  Build og_annotate native host (current platform)"
         echo "  build-og-annotate-all  Cross-compile og_annotate for all platforms"
-        echo "  dev                Quick development build (no clean)"
         echo ""
         echo "Distribution Commands:"
         echo "  dist               Run check and create distribution zip"
