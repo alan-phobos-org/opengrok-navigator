@@ -265,6 +265,46 @@ func TestSearchResponseUnmarshalWithLowerCaseLinenoAsNumber(t *testing.T) {
 	}
 }
 
+func TestNormalizeResultsByProjectFromFilePathKeys(t *testing.T) {
+	results := map[string][]SearchResult{
+		"/proj/src/file.c": {
+			{Line: "match", LineNo: "1", Path: "/proj/src/file.c"},
+		},
+	}
+
+	normalized := normalizeResultsByProject(results)
+	if len(normalized) != 1 {
+		t.Fatalf("Expected 1 project, got %d", len(normalized))
+	}
+
+	projectResults := normalized["proj"]
+	if len(projectResults) != 1 {
+		t.Fatalf("Expected 1 result under proj, got %d", len(projectResults))
+	}
+
+	if projectResults[0].Path != "/src/file.c" {
+		t.Errorf("Normalized path: got %q, want %q", projectResults[0].Path, "/src/file.c")
+	}
+}
+
+func TestNormalizeResultsByProjectStripsProjectPrefix(t *testing.T) {
+	results := map[string][]SearchResult{
+		"proj": {
+			{Line: "match", LineNo: "2", Path: "/proj/src/file.c"},
+		},
+	}
+
+	normalized := normalizeResultsByProject(results)
+	projectResults := normalized["proj"]
+	if len(projectResults) != 1 {
+		t.Fatalf("Expected 1 result under proj, got %d", len(projectResults))
+	}
+
+	if projectResults[0].Path != "/src/file.c" {
+		t.Errorf("Normalized path: got %q, want %q", projectResults[0].Path, "/src/file.c")
+	}
+}
+
 // TestSearchResultUnmarshalBothFormats tests that all field name variants
 // (lineNo, lineno, lineNumber) are handled correctly.
 func TestSearchResultUnmarshalBothFormats(t *testing.T) {

@@ -22,7 +22,7 @@
     },
     {
       "matches": ["*://*/source/xref/*", "*://*/source/", "*://*/source", "*://*/source/search*"],
-      "js": ["debug.js", "content.js", "annotations.js"],
+      "js": ["content.js", "annotations.js"],
       "run_at": "document_idle"
     }
   ],

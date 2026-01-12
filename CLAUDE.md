@@ -79,19 +79,113 @@ Bidirectional VS Code ↔ OpenGrok integration via extensions and CLI tool.
 
 **Keyboard Shortcuts** (Chrome extension):
 - `t`: Quick file finder
-- `c`: Create annotation at current line
+- `c`: Create annotation (requires hovering over a line number)
 - `x`: Jump to next annotation (wraps around)
 
-## Build
+## Native Messaging Linkage (CRITICAL)
 
-**All**: `make dist` (builds everything and creates distribution zip)
+**IMPORTANT**: The Chrome extension ↔ og_annotate link requires exact name matching across multiple files.
 
-**VS Code**: `make build-vscode` or `cd vscode-extension && npm install && npm run compile`
-**Chrome**: `make build-chrome` (zips extension files)
-**og CLI**: `make build-og` or `cd og && go build -o og .`
-**og_annotate**: `make build-og-annotate` or `cd og_annotate && go build -o og_annotate .`
-**Tests**: `make test` (runs all tests) or `make test-og-annotate`
-**Chrome E2E**: `cd chrome-extension && npm install && npm test` (Playwright, headless)
+**Message Flow**:
+1. `annotations.js` → `chrome.runtime.sendMessage()` → `background.js`
+2. `background.js` → `chrome.runtime.sendNativeMessage('og_annotate', ...)` → og_annotate binary
+3. og_annotate binary → stdio response → back through the chain
+
+**Critical Link Points**:
+
+| Component | File | Key Value |
+|-----------|------|-----------|
+| Host name constant | [background.js:20](chrome-extension/background.js#L20) | `const NATIVE_HOST = 'og_annotate'` |
+| Permission | [manifest.json:10](chrome-extension/manifest.json#L10) | `"nativeMessaging"` |
+| Manifest name | install.sh / install.ps1 | `"name": "og_annotate"` |
+| Binary protocol | [main.go](og_annotate/main.go) | 4-byte little-endian length + JSON |
+
+**Action Mapping** (prefix stripped by background.js):
+
+| Chrome Action | og_annotate Handler |
+|--------------|-------------------|
+| `annotation:ping` | `ping` |
+| `annotation:read` | `read` |
+| `annotation:save` | `save` |
+| `annotation:delete` | `delete` |
+| `annotation:startEditing` | `startEditing` |
+| `annotation:stopEditing` | `stopEditing` |
+| `annotation:getEditing` | `getEditing` |
+
+**Native Messaging Manifest** (created by installers):
+- macOS: `~/Library/Application Support/Google/Chrome/NativeMessagingHosts/og_annotate.json`
+- Linux: `~/.config/google-chrome/NativeMessagingHosts/og_annotate.json`
+- Windows: Registry `HKCU:\Software\Google\Chrome\NativeMessagingHosts\og_annotate` → manifest file
+
+**Manifest Format**:
+```json
+{
+  "name": "og_annotate",
+  "path": "/path/to/og_annotate",
+  "type": "stdio",
+  "allowed_origins": ["chrome-extension://EXTENSION_ID/"]
+}
+```
+
+**When modifying**: If you change the host name, you MUST update: `NATIVE_HOST` constant, installer manifest generation, and og_annotate binary name expectations.
+
+## Development Workflow
+
+Before committing, always run:
+```bash
+./build.sh check
+```
+
+This runs gofmt, staticcheck, Go tests, and builds all components.
+
+## Build Commands
+
+```bash
+./build.sh build              # Build all components
+./build.sh build-vscode       # Build VS Code extension (.vsix)
+./build.sh build-chrome       # Package Chrome extension (.zip)
+./build.sh build-og           # Build og CLI tool
+./build.sh build-og-annotate  # Build og_annotate native host
+./build.sh dev                # Quick development build (no clean)
+./build.sh dist               # Run check and create distribution zip
+./build.sh test               # Run all Go tests
+./build.sh test-chrome        # Run Chrome extension E2E tests
+./build.sh test-all           # Run all tests including Chrome E2E
+./build.sh lint               # Format and lint Go code
+./build.sh check              # Full pre-commit check (lint + test + build)
+./build.sh clean              # Remove all build artifacts
+./build.sh deploy-local       # Run dist and install from package
+./build.sh deploy-local --skip-tests  # Fast deploy without tests
+./build.sh prepare-release    # Run all checks and show changes
+./build.sh release X.Y.Z      # Create release commit and tag
+```
+
+## Installation
+
+**Unified Installers** (in dist archive and repo root):
+- `install.sh` - macOS/Linux installer
+- `install.ps1` - Windows PowerShell installer
+- `install.bat` - Windows double-click wrapper
+
+**What they install**:
+1. VS Code extension via `code --install-extension` (falls back to manual instructions)
+2. Chrome extension extracted to `~/.opengrok-navigator/chrome-extension/` (requires manual load)
+3. og_annotate native host with auto-detected extension ID
+
+**Usage**:
+```bash
+# From dist archive or repo root
+./install.sh          # macOS/Linux
+.\install.ps1         # Windows PowerShell
+install.bat           # Windows (double-click)
+
+# Local development
+./build.sh deploy-local     # Build and install locally
+```
+
+**Install locations**:
+- Chrome extension: `~/.opengrok-navigator/chrome-extension/` (Unix) or `%LOCALAPPDATA%\opengrok-navigator\` (Windows)
+- og_annotate binary: `~/.local/bin/og_annotate` (Unix) or `%LOCALAPPDATA%\og_annotate\` (Windows)
 
 ## Test Maintenance
 

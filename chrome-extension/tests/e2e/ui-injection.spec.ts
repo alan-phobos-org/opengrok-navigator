@@ -19,8 +19,8 @@ test.describe('UI Injection', () => {
   });
 
   test('floating toolbar contains VS Code open button', async ({ openGrokPage }) => {
-    // The primary "Open in VS Code" button
-    const openButton = openGrokPage.locator('.vscode-button-toolbar .vscode-open-btn');
+    // The primary "Open in VS Code" button (by ID to avoid matching annotation button)
+    const openButton = openGrokPage.locator('#vscode-open-button');
     await expect(openButton).toBeVisible();
 
     // Should have a tooltip

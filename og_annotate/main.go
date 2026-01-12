@@ -16,10 +16,11 @@ type Request struct {
 	Project     string `json:"project,omitempty"`
 	FilePath    string `json:"filePath,omitempty"`
 	// For save operations
-	Line       int      `json:"line,omitempty"`
-	Author     string   `json:"author,omitempty"`
-	Text       string   `json:"text,omitempty"`
-	Context    []string `json:"context,omitempty"` // 7 lines: 3 before + annotated + 3 after
+	Line    int      `json:"line,omitempty"`
+	Author  string   `json:"author,omitempty"`
+	Text    string   `json:"text,omitempty"`
+	Context []string `json:"context,omitempty"` // 7 lines: 3 before + annotated + 3 after
+	Source  string   `json:"source,omitempty"`  // Full source code for v2 format
 	// For edit tracking
 	User string `json:"user,omitempty"`
 }
@@ -95,7 +96,10 @@ func handleRequest(req Request) Response {
 		if req.Line <= 0 || req.Author == "" || req.Text == "" {
 			return Response{Success: false, Error: "Missing required fields: line, author, text"}
 		}
-		err := SaveAnnotation(req.StoragePath, req.Project, req.FilePath, req.Line, req.Author, req.Text, req.Context)
+		if req.Source == "" {
+			return Response{Success: false, Error: "Missing required field: source (full source code required)"}
+		}
+		err := SaveAnnotationV2(req.StoragePath, req.Project, req.FilePath, req.Line, req.Author, req.Text, req.Source, "")
 		if err != nil {
 			return Response{Success: false, Error: err.Error()}
 		}

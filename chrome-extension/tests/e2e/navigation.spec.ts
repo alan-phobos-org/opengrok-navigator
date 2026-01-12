@@ -8,7 +8,7 @@
  * - background.js: openInVSCode message handling
  */
 
-import { test, expect, TEST_FILE_URL } from './fixtures';
+import { test, expect, TEST_FILE_URL, configureExtension } from './fixtures';
 
 test.describe('Navigation', () => {
   test('Ctrl+click on line number sends openInVSCode message', async ({ context, openGrokPage }) => {
@@ -75,5 +75,37 @@ test.describe('Navigation', () => {
     // Should not show any error toasts
     const errors = await openGrokPage.locator('.vscode-error-toast').count();
     expect(errors).toBe(0);
+  });
+
+  test('openInVSCode encodes spaces and special characters in file paths', async ({ context, extensionId }) => {
+    await configureExtension(context, extensionId, {
+      projectMappings: {
+        'illumos-gate': '/tmp/My Workspace'
+      }
+    });
+
+    const optionsPage = await context.newPage();
+    await optionsPage.goto(`chrome-extension://${extensionId}/options.html`);
+
+    const response = await optionsPage.evaluate(() => {
+      return new Promise((resolve) => {
+        chrome.runtime.sendMessage({
+          action: 'openInVSCode',
+          data: {
+            project: 'illumos-gate',
+            filePath: 'dir/with space/file#1.c',
+            lineNumber: '12'
+          }
+        }, resolve);
+      });
+    });
+
+    await optionsPage.close();
+
+    expect(response).toBeTruthy();
+    expect(response.uri).toContain('with%20space');
+    expect(response.uri).toContain('file%231.c');
+    expect(response.uri).not.toContain(' ');
+    expect(response.uri).not.toContain('#');
   });
 });

@@ -811,12 +811,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   } else if (message.action === 'openInVSCode') {
     openInVSCode(message.lineNumber);
     sendResponse({ success: true });
-  } else if (message.action === 'addAnnotationAtCursor') {
-    // Forward to annotation manager if it exists
-    if (window.annotationManager) {
-      window.annotationManager.addAnnotationAtCursor();
-    }
-    sendResponse({ success: true });
   }
   return true;
 });

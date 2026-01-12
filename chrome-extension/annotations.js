@@ -15,8 +15,7 @@ class AnnotationManager {
     this.editingLine = null;
     this.pollInterval = null;
     this.config = null;
-    this.lastContextMenuTarget = null;
-    this.lastHoveredElement = null;
+    this.hoveredLineNumber = null;  // Simple: only set when hovering a line number anchor
 
     // Parse current page info
     const parsed = this.parseOpenGrokUrl();
@@ -28,30 +27,93 @@ class AnnotationManager {
       annotationLog.warn('Could not parse page URL for annotations');
     }
 
-    // Track mouse position for 'c' keyboard shortcut
+    // Track hover on line number anchors only
+    this.setupLineNumberHoverTracking();
+  }
+
+  setupLineNumberHoverTracking() {
+    // Use event delegation on document for efficiency
+    // Line number anchors have: class="l" or "hl", name="<linenum>", href="#<linenum>"
+    // Use [name] selector to exclude scope/fold wrappers that might also have class "l"
     document.addEventListener('mouseover', (e) => {
-      this.lastHoveredElement = e.target;
+      const lineAnchor = this.findLineAnchorFromElement(e.target);
+      if (lineAnchor) {
+        // Use name attribute for line number (more reliable than textContent)
+        const lineNum = parseInt(lineAnchor.getAttribute('name'), 10);
+        if (!isNaN(lineNum) && lineNum > 0) {
+          this.hoveredLineNumber = lineNum;
+          annotationLog.trace('Hovering line number', lineNum);
+        }
+      }
     });
 
-    // Track right-click target for context menu
-    document.addEventListener('contextmenu', (e) => {
-      this.lastContextMenuTarget = e.target;
+    document.addEventListener('mouseout', (e) => {
+      const fromLineAnchor = this.findLineAnchorFromElement(e.target);
+      if (!fromLineAnchor) return;
+
+      // Check if we're moving to another line anchor (mouseover will update)
+      const toElement = e.relatedTarget;
+      const toLineAnchor = toElement ? this.findLineAnchorFromElement(toElement) : null;
+
+      // Only clear if leaving line number area entirely
+      if (!toLineAnchor) {
+        this.hoveredLineNumber = null;
+        annotationLog.trace('Left line number');
+      }
     });
+  }
+
+  // Find the nearest line number anchor from an element
+  // Returns null if not inside a valid line number anchor
+  findLineAnchorFromElement(el) {
+    if (!el) return null;
+    // Look for anchor with name attribute (true line anchors have name="<linenum>")
+    const anchor = el.closest('a.l[name], a.hl[name]');
+    if (!anchor) return null;
+    // Validate it's a line number anchor by checking name is numeric
+    const name = anchor.getAttribute('name');
+    if (!name || !/^\d+$/.test(name)) return null;
+    return anchor;
   }
 
   parseOpenGrokUrl() {
     const url = window.location.href;
     const urlWithoutQuery = url.split('?')[0];
     const match = urlWithoutQuery.match(/\/xref\/([^/]+)\/(.+?)(?:#(\d+))?$/);
-    if (!match) return null;
+    if (!match) {
+      return this.parseOpenGrokDom();
+    }
     return {
       project: match[1],
       filePath: match[2].replace(/#.*$/, '')
     };
   }
 
+  parseOpenGrokDom() {
+    const breadcrumbLinks = document.querySelectorAll('#Masthead a[href*="/xref/"]');
+    if (!breadcrumbLinks.length) return null;
+    const lastLink = breadcrumbLinks[breadcrumbLinks.length - 1];
+    const href = lastLink.getAttribute('href') || '';
+    const match = href.match(/\/xref\/([^/]+)\/(.+)$/);
+    if (!match) return null;
+    return {
+      project: match[1],
+      filePath: match[2]
+    };
+  }
+
+  refreshPageContext() {
+    const parsed = this.parseOpenGrokUrl();
+    if (!parsed) return false;
+    this.project = parsed.project;
+    this.filePath = parsed.filePath;
+    annotationLog.debug('Refreshed page info', { project: this.project, filePath: this.filePath });
+    return true;
+  }
+
   async init() {
     annotationLog.info('Initializing annotations');
+    this.refreshPageContext();
 
     // Load config
     await this.loadConfig();
@@ -59,11 +121,19 @@ class AnnotationManager {
     // Add toolbar button
     this.addToolbarButton();
 
-    // Add annotation indicators for existing annotations
+    // Add annotation indicators for existing annotations (only if config is valid)
     if (this.config.storagePath) {
-      annotationLog.debug('Storage path configured, loading annotations');
-      await this.loadAnnotations();
-      this.renderIndicators();
+      // Validate config before trying to load
+      const validation = await this.validateConfig();
+      if (validation.valid) {
+        annotationLog.debug('Storage path configured and valid, loading annotations');
+        const loadResult = await this.loadAnnotations();
+        if (loadResult.success) {
+          this.renderIndicators();
+        }
+      } else {
+        annotationLog.debug('Storage path configured but validation failed', validation);
+      }
     } else {
       annotationLog.debug('No storage path configured');
     }
@@ -93,6 +163,14 @@ class AnnotationManager {
   }
 
   async enableAnnotations() {
+    // Validate config first
+    const validation = await this.validateConfig();
+    if (!validation.valid) {
+      annotationLog.warn('Cannot enable annotations - validation failed', validation);
+      // Don't show error on auto-enable, just silently fail
+      return false;
+    }
+
     this.enabled = true;
 
     const btn = document.getElementById('og-annotation-button');
@@ -101,11 +179,20 @@ class AnnotationManager {
     }
 
     document.body.classList.add('og-annotations-enabled');
-    await this.loadAnnotations();
+    const loadResult = await this.loadAnnotations();
+    if (!loadResult.success && !loadResult.skipped) {
+      // Error loading - disable and reset
+      annotationLog.error('Failed to load annotations during enable', loadResult.error);
+      this.enabled = false;
+      if (btn) btn.classList.remove('active');
+      document.body.classList.remove('og-annotations-enabled');
+      return false;
+    }
     this.renderIndicators();  // Must be before addLineHoverButtons
     this.renderAnnotations();
     this.addLineHoverButtons();
     this.startPolling();
+    return true;
   }
 
   async loadConfig() {
@@ -157,10 +244,20 @@ class AnnotationManager {
 
   async toggleAnnotations() {
     // Check if configured
-    if (!this.config.storagePath || !this.config.authorName) {
-      await this.showConfigDialog();
-      if (!this.config.storagePath || !this.config.authorName) {
-        return; // User cancelled
+    const isConfigured = await this.ensureConfig();
+    if (!isConfigured) return;
+
+    // If we're about to enable, validate the config first
+    if (!this.enabled) {
+      const validation = await this.validateConfig();
+      if (!validation.valid) {
+        if (validation.reason === 'native_host_unavailable') {
+          this.showToast('Native host not available. Please ensure og_annotate is installed.', 'error');
+          return;
+        }
+        // For other validation failures, prompt for config
+        await this.promptForConfig(validation.error);
+        return;
       }
     }
 
@@ -176,7 +273,16 @@ class AnnotationManager {
 
     if (this.enabled) {
       document.body.classList.add('og-annotations-enabled');
-      await this.loadAnnotations();
+      const loadResult = await this.loadAnnotations();
+      if (!loadResult.success && !loadResult.skipped) {
+        // Error loading annotations - offer to reconfigure
+        this.enabled = false;
+        chrome.storage.local.set({ annotationsEnabled: false });
+        if (btn) btn.classList.remove('active');
+        document.body.classList.remove('og-annotations-enabled');
+        await this.promptForConfig(loadResult.error);
+        return;
+      }
       this.renderIndicators();  // Must be before addLineHoverButtons
       this.renderAnnotations();
       this.addLineHoverButtons();
@@ -239,16 +345,18 @@ class AnnotationManager {
           return;
         }
 
-        // Test connection to native host
-        const pingResult = await this.sendMessage({ action: 'annotation:ping' });
-        if (!pingResult || !pingResult.success) {
-          this.showToast('Native host not installed. Please install og_annotate first.', 'error');
-          return;
-        }
-
+        // Save config first - don't block on native host check
         this.config.storagePath = path;
         this.config.authorName = author;
         await this.saveConfig();
+
+        // Test connection to native host (non-blocking warning)
+        const pingResult = await this.sendMessage({ action: 'annotation:ping' });
+        if (!pingResult || !pingResult.success) {
+          this.showToast('Config saved. Note: Native host (og_annotate) not detected - install it to use annotations.', 'info');
+        } else {
+          this.showToast('Configuration saved', 'success');
+        }
 
         modal.remove();
         resolve();
@@ -276,7 +384,7 @@ class AnnotationManager {
         hasFilePath: !!this.filePath
       });
       this.annotations = [];
-      return;
+      return { success: true, skipped: true };
     }
 
     annotationLog.debug('Loading annotations', { project: this.project, filePath: this.filePath });
@@ -291,12 +399,11 @@ class AnnotationManager {
     if (result && result.success) {
       this.annotations = result.annotations || [];
       annotationLog.info('Annotations loaded', { count: this.annotations.length });
+      return { success: true };
     } else {
       this.annotations = [];
       annotationLog.error('Failed to load annotations', result?.error);
-      if (result && result.error) {
-        this.showToast(result.error, 'error');
-      }
+      return { success: false, error: result?.error || 'Unknown error' };
     }
   }
 
@@ -374,11 +481,11 @@ class AnnotationManager {
 
   findInsertionPoint(lineNum) {
     // Find the anchor for the next line
+    // Insert directly before the anchor, not before its container
+    // This fixes positioning in collapsible code blocks where a container
+    // div might wrap multiple lines starting earlier in the file
     const nextLineAnchor = this.findLineAnchor(lineNum + 1);
-    if (nextLineAnchor) {
-      return nextLineAnchor;
-    }
-    return null;
+    return nextLineAnchor;
   }
 
   createAnnotationElement(ann) {
@@ -411,41 +518,45 @@ class AnnotationManager {
     // No longer using hover buttons - using context menu instead
   }
 
-  addAnnotationAtCursor() {
-    // Find the line number from: 1) mouse hover position, 2) right-click target, 3) URL hash
-    let lineNum = null;
+  async addAnnotationAtCursor() {
+    // Only works when hovering over a line number
+    const lineNum = this.hoveredLineNumber;
 
-    // First, try to find from current mouse hover position
-    if (this.lastHoveredElement) {
-      lineNum = this.findLineFromElement(this.lastHoveredElement);
-    }
-
-    // If not found, try right-click target (for context menu)
-    if (!lineNum && this.lastContextMenuTarget) {
-      lineNum = this.findLineFromElement(this.lastContextMenuTarget);
-      this.lastContextMenuTarget = null; // Clear after use
-    }
-
-    // Last resort: URL hash
     if (!lineNum) {
-      const hash = window.location.hash.replace('#', '');
-      if (hash) {
-        lineNum = parseInt(hash, 10);
+      this.showToast('Hover over a line number to add an annotation.', 'info');
+      return;
+    }
+
+    const isConfigured = await this.ensureConfig();
+    if (!isConfigured) return;
+
+    // Validate config works
+    const validation = await this.validateConfig();
+    if (!validation.valid) {
+      if (validation.reason === 'native_host_unavailable') {
+        this.showToast('Native host (og_annotate) not available. Please install it to use annotations.', 'error');
+      } else {
+        await this.promptForConfig(validation.error);
+      }
+      return;
+    }
+
+    if (!this.project || !this.filePath) {
+      if (!this.refreshPageContext()) {
+        this.showToast('Cannot determine file path for annotations. Open a file view in OpenGrok.', 'error');
+        return;
       }
     }
 
-    if (lineNum) {
-      // Enable annotations if not already enabled
-      if (!this.enabled) {
-        this.enableAnnotations().then(() => {
-          this.showEditor(lineNum);
-        });
-      } else {
-        this.showEditor(lineNum);
+    // Enable annotations if not already enabled
+    if (!this.enabled) {
+      const enabled = await this.enableAnnotations();
+      if (!enabled) {
+        this.showToast('Failed to enable annotations. Check your configuration.', 'error');
+        return;
       }
-    } else {
-      this.showToast('Could not determine line number. Click on a line first.', 'error');
     }
+    this.showEditor(lineNum);
   }
 
   jumpToNextAnnotation() {
@@ -476,40 +587,6 @@ class AnnotationManager {
       // Update URL hash
       window.location.hash = nextAnnotation.line;
     }
-  }
-
-  findLineFromElement(element) {
-    let node = element;
-    while (node && node !== document.body) {
-      // Check previous siblings first (works for both text nodes and elements)
-      // In OpenGrok, line anchors are siblings to code content within <pre>
-      let sibling = node.previousSibling;
-      while (sibling) {
-        if (sibling.nodeType === Node.ELEMENT_NODE) {
-          if (sibling.matches?.('a.l, a.hl')) {
-            return parseInt(sibling.textContent.trim(), 10);
-          }
-        }
-        sibling = sibling.previousSibling;
-      }
-
-      if (node.nodeType === Node.ELEMENT_NODE) {
-        // Check if this element is a line anchor
-        if (node.matches?.('a.l, a.hl')) {
-          return parseInt(node.textContent.trim(), 10);
-        }
-        // Only check children if this is a small element (not a container like <pre>)
-        // to avoid matching the wrong line anchor
-        if (!node.matches?.('pre, div, body')) {
-          const lineAnchor = node.querySelector?.('a.l, a.hl');
-          if (lineAnchor) {
-            return parseInt(lineAnchor.textContent.trim(), 10);
-          }
-        }
-      }
-      node = node.parentElement;
-    }
-    return null;
   }
 
   removeLineHoverButtons() {
@@ -626,6 +703,13 @@ class AnnotationManager {
     // Get context (3 lines before, annotated line, 3 lines after)
     const context = this.getLineContext(lineNum);
 
+    // Get full source code - required for proper annotation storage
+    const source = this.getFullSource();
+    if (!source) {
+      this.showToast('Failed to extract source code from page', 'error');
+      return;
+    }
+
     const result = await this.sendMessage({
       action: 'annotation:save',
       storagePath: this.config.storagePath,
@@ -634,7 +718,8 @@ class AnnotationManager {
       line: lineNum,
       author: this.config.authorName,
       text: text,
-      context: context
+      context: context,
+      source: source
     });
 
     if (result && result.success) {
@@ -695,6 +780,19 @@ class AnnotationManager {
     }
 
     return code;
+  }
+
+  getFullSource() {
+    // Extract the entire source code from the page
+    const lines = [];
+    const anchors = document.querySelectorAll('a.l, a.hl');
+
+    for (const anchor of anchors) {
+      const content = this.extractLineContent(anchor);
+      lines.push(content);
+    }
+
+    return lines.join('\n');
   }
 
   async confirmDelete(lineNum) {
@@ -795,6 +893,45 @@ class AnnotationManager {
       clearInterval(this.pollInterval);
       this.pollInterval = null;
     }
+  }
+
+  async ensureConfig() {
+    if (!this.config) {
+      await this.loadConfig();
+    }
+
+    if (!this.config.storagePath || !this.config.authorName) {
+      await this.showConfigDialog();
+      // Reload config after dialog closes
+      await this.loadConfig();
+    }
+
+    return !!(this.config.storagePath && this.config.authorName);
+  }
+
+  // Check if config is valid (native host responds and storage path works)
+  async validateConfig() {
+    if (!this.config.storagePath || !this.config.authorName) {
+      return { valid: false, reason: 'not_configured' };
+    }
+
+    // Test native host connection
+    const pingResult = await this.sendMessage({ action: 'annotation:ping' });
+    if (!pingResult || !pingResult.success) {
+      return { valid: false, reason: 'native_host_unavailable', error: pingResult?.error || 'Native host not responding' };
+    }
+
+    return { valid: true };
+  }
+
+  // Show config dialog with an optional error message
+  async promptForConfig(errorMessage = null) {
+    if (errorMessage) {
+      this.showToast(errorMessage + ' - Please configure annotations.', 'error');
+    }
+    await this.showConfigDialog();
+    await this.loadConfig();
+    return !!(this.config.storagePath && this.config.authorName);
   }
 
   findLineAnchor(lineNum) {

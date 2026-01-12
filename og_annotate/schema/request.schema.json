@@ -1,0 +1,85 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://opengrok-navigator.github.io/schema/request.schema.json",
+  "title": "og_annotate Request",
+  "description": "Request message from Chrome extension to og_annotate native host",
+  "type": "object",
+  "required": ["action"],
+  "properties": {
+    "action": {
+      "type": "string",
+      "enum": ["ping", "read", "save", "delete", "startEditing", "stopEditing", "getEditing", "listAnnotatedFiles"],
+      "description": "The action to perform"
+    },
+    "storagePath": {
+      "type": "string",
+      "description": "Path to annotation storage directory"
+    },
+    "project": {
+      "type": "string",
+      "description": "OpenGrok project name"
+    },
+    "filePath": {
+      "type": "string",
+      "description": "Path to the source file within the project"
+    },
+    "line": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Line number for the annotation"
+    },
+    "author": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Author name for the annotation"
+    },
+    "text": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Annotation text content"
+    },
+    "sourceContent": {
+      "type": "string",
+      "description": "Full source file content (required for first annotation)"
+    },
+    "sourceHash": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{12}$",
+      "description": "SHA-256 hash prefix (12 hex chars) of source content"
+    },
+    "user": {
+      "type": "string",
+      "description": "Username for edit tracking"
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "action": { "const": "read" } } },
+      "then": { "required": ["storagePath", "project", "filePath"] }
+    },
+    {
+      "if": { "properties": { "action": { "const": "save" } } },
+      "then": { "required": ["storagePath", "project", "filePath", "line", "author", "text"] }
+    },
+    {
+      "if": { "properties": { "action": { "const": "delete" } } },
+      "then": { "required": ["storagePath", "project", "filePath", "line"] }
+    },
+    {
+      "if": { "properties": { "action": { "const": "startEditing" } } },
+      "then": { "required": ["storagePath", "user", "filePath"] }
+    },
+    {
+      "if": { "properties": { "action": { "const": "stopEditing" } } },
+      "then": { "required": ["storagePath", "user"] }
+    },
+    {
+      "if": { "properties": { "action": { "const": "getEditing" } } },
+      "then": { "required": ["storagePath"] }
+    },
+    {
+      "if": { "properties": { "action": { "const": "listAnnotatedFiles" } } },
+      "then": { "required": ["storagePath", "project"] }
+    }
+  ]
+}

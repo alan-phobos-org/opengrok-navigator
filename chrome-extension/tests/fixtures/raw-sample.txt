@@ -1,0 +1,145 @@
+/*
+ * MPI - Multi Precision Integer library
+ * Copyright (c) 2024 OpenGrok Project
+ */
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include "mpi.h"
+
+/* Initialize an MPI integer */
+int mpi_init(mpi_t *mp) {
+    if (mp == NULL) {
+        return MPI_ERR_NULL;
+    }
+    mp->data = NULL;
+    mp->size = 0;
+    mp->alloc = 0;
+    mp->sign = 1;
+    return MPI_OK;
+}
+
+/* Free an MPI integer */
+void mpi_free(mpi_t *mp) {
+    if (mp != NULL && mp->data != NULL) {
+        free(mp->data);
+        mp->data = NULL;
+    }
+}
+
+/* Set MPI from unsigned long */
+int mpi_set_ulong(mpi_t *mp, unsigned long val) {
+    if (mp == NULL) {
+        return MPI_ERR_NULL;
+    }
+    mp->sign = 1;
+    if (val == 0) {
+        mp->size = 0;
+        return MPI_OK;
+    }
+    /* Allocate space for the value */
+    if (mpi_grow(mp, 1) != MPI_OK) {
+        return MPI_ERR_NOMEM;
+    }
+    mp->data[0] = val;
+    mp->size = 1;
+    return MPI_OK;
+}
+
+/* Add two MPI integers */
+int mpi_add(mpi_t *result, const mpi_t *a, const mpi_t *b) {
+    if (result == NULL || a == NULL || b == NULL) {
+        return MPI_ERR_NULL;
+    }
+    /* Handle signs */
+    if (a->sign == b->sign) {
+        result->sign = a->sign;
+        return mpi_add_abs(result, a, b);
+    } else {
+        return mpi_sub_abs(result, a, b);
+    }
+}
+
+/* Multiply two MPI integers */
+int mpi_mul(mpi_t *result, const mpi_t *a, const mpi_t *b) {
+    size_t i, j;
+    if (result == NULL || a == NULL || b == NULL) {
+        return MPI_ERR_NULL;
+    }
+    /* Handle zero cases */
+    if (a->size == 0 || b->size == 0) {
+        result->size = 0;
+        return MPI_OK;
+    }
+    /* Allocate space for result */
+    if (mpi_grow(result, a->size + b->size) != MPI_OK) {
+        return MPI_ERR_NOMEM;
+    }
+    /* Zero out result */
+    memset(result->data, 0, (a->size + b->size) * sizeof(mp_digit));
+    /* Perform multiplication */
+    for (i = 0; i < a->size; i++) {
+        mp_digit carry = 0;
+        for (j = 0; j < b->size; j++) {
+            mp_word prod = (mp_word)a->data[i] * b->data[j];
+            prod += result->data[i + j] + carry;
+            result->data[i + j] = (mp_digit)prod;
+            carry = (mp_digit)(prod >> MP_DIGIT_BITS);
+        }
+        result->data[i + b->size] = carry;
+    }
+    result->size = a->size + b->size;
+    result->sign = (a->sign == b->sign) ? 1 : -1;
+    mpi_clamp(result);
+    return MPI_OK;
+}
+
+/* Compare two MPI integers */
+int mpi_cmp(mpi_t *a, mpi_t *b) {
+    if (a == NULL || b == NULL) {
+        return 0;
+    }
+    /* Compare signs first */
+    if (a->sign != b->sign) {
+        return a->sign;
+    }
+    /* Compare sizes */
+    if (a->size != b->size) {
+        return (a->size > b->size) ? a->sign : -a->sign;
+    }
+    /* Compare digits from most significant */
+    for (size_t i = a->size; i > 0; i--) {
+        if (a->data[i-1] != b->data[i-1]) {
+            return (a->data[i-1] > b->data[i-1]) ? a->sign : -a->sign;
+        }
+    }
+    return 0;
+}
+
+/* Convert MPI to string */
+char *mpi_to_str(mpi_t *mp, int radix) {
+    if (mp == NULL || radix < 2 || radix > 36) {
+        return NULL;
+    }
+    /* Handle zero case */
+    if (mp->size == 0) {
+        char *str = malloc(2);
+        if (str) {
+            str[0] = '0';
+            str[1] = '\0';
+        }
+        return str;
+    }
+    /* Calculate string length needed */
+    size_t len = mpi_string_size(mp, radix);
+    char *str = malloc(len + 1);
+    if (str == NULL) {
+        return NULL;
+    }
+    /* Convert to string */
+    mpi_to_str_impl(mp, radix, str);
+    return str;
+}
+
+/* End of file */

@@ -295,7 +295,9 @@
 }
 
 .og-toast.error {
-  background: #d32f2f;
+  background: #b3261e;
+  color: #fff;
+  border: 1px solid #ffb4ab;
 }
 
 .og-toast.success {

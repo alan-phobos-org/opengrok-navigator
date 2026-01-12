@@ -33,6 +33,32 @@ func skipOnServerError(t *testing.T, err error) {
 	t.Fatalf("Failed to perform request: %v", err)
 }
 
+func resultPathForProject(project string, result SearchResult) string {
+	path := result.Path
+	if path == "" && (result.Directory != "" || result.Filename != "") {
+		dir := strings.TrimSuffix(result.Directory, "/")
+		if dir != "" && result.Filename != "" {
+			path = dir + "/" + result.Filename
+		} else if result.Filename != "" {
+			path = result.Filename
+		} else {
+			path = dir
+		}
+	}
+
+	path = strings.TrimPrefix(path, "/")
+	if project != "" && strings.HasPrefix(path, project+"/") {
+		path = strings.TrimPrefix(path, project+"/")
+	}
+	if project == "" {
+		return path
+	}
+	if path == "" {
+		return project
+	}
+	return project + "/" + path
+}
+
 // TestIntegrationGetProjects tests that we can retrieve the list of projects
 // from the illumos OpenGrok server.
 // NOTE: This test is skipped if the server requires authentication for the /projects endpoint.
@@ -82,20 +108,19 @@ func TestIntegrationFullTextSearch(t *testing.T) {
 		t.Fatal("Expected search results for 'mutex_enter', got none")
 	}
 
-	// The response Results map has file paths as keys (e.g., "/illumos-gate/usr/src/...")
-	// not project names. Verify we have any results.
+	// The response Results map has project names as keys.
 	if len(resp.Results) == 0 {
 		t.Fatal("Expected results map to have entries")
 	}
 
 	// Check that at least one result contains the search term or is from a source file
 	foundRelevant := false
-	for filePath, results := range resp.Results {
-		// Verify the file path is from illumos-gate project
-		if !strings.Contains(filePath, "illumos-gate") {
-			t.Logf("Unexpected file path not in illumos-gate: %s", filePath)
+	for project, results := range resp.Results {
+		if project != "illumos-gate" {
+			t.Logf("Unexpected project key in results: %s", project)
 		}
 		for _, r := range results {
+			filePath := resultPathForProject(project, r)
 			if strings.Contains(strings.ToLower(r.Line), "mutex") ||
 				strings.HasSuffix(filePath, ".c") ||
 				strings.HasSuffix(filePath, ".h") {
@@ -132,16 +157,22 @@ func TestIntegrationDefinitionSearch(t *testing.T) {
 		t.Fatal("Expected search results for definition 'kmem_alloc', got none")
 	}
 
-	// The response Results map has file paths as keys. Verify we have results.
+	// The response Results map has project names as keys. Verify we have results.
 	if len(resp.Results) == 0 {
 		t.Fatal("Expected results map to have entries")
 	}
 
 	// Verify at least one file path contains the search term or is a .c file (likely definition)
 	foundDefinition := false
-	for filePath, results := range resp.Results {
-		if len(results) > 0 && strings.HasSuffix(filePath, ".c") {
-			foundDefinition = true
+	for project, results := range resp.Results {
+		for _, r := range results {
+			filePath := resultPathForProject(project, r)
+			if strings.HasSuffix(filePath, ".c") {
+				foundDefinition = true
+				break
+			}
+		}
+		if foundDefinition {
 			break
 		}
 	}
@@ -170,16 +201,22 @@ func TestIntegrationPathSearch(t *testing.T) {
 		t.Fatal("Expected search results for path 'kmem.c', got none")
 	}
 
-	// The response Results map has file paths as keys. Verify we have results.
+	// The response Results map has project names as keys. Verify we have results.
 	if len(resp.Results) == 0 {
 		t.Fatal("Expected results map to have entries")
 	}
 
 	// Verify at least one file path contains 'kmem'
 	foundKmem := false
-	for filePath := range resp.Results {
-		if strings.Contains(strings.ToLower(filePath), "kmem") {
-			foundKmem = true
+	for project, results := range resp.Results {
+		for _, r := range results {
+			filePath := resultPathForProject(project, r)
+			if strings.Contains(strings.ToLower(filePath), "kmem") {
+				foundKmem = true
+				break
+			}
+		}
+		if foundKmem {
 			break
 		}
 	}
@@ -208,7 +245,7 @@ func TestIntegrationSymbolSearch(t *testing.T) {
 		t.Fatal("Expected search results for symbol 'ddi_prop_get_int', got none")
 	}
 
-	// The response Results map has file paths as keys. Verify we have results.
+	// The response Results map has project names as keys. Verify we have results.
 	if len(resp.Results) == 0 {
 		t.Fatal("Expected results map to have entries")
 	}
@@ -290,15 +327,16 @@ func TestIntegrationSearchResponseFields(t *testing.T) {
 		t.Fatal("Expected results for 'printf'")
 	}
 
-	// The response Results map has file paths as keys.
-	// Check that each file path is non-empty and results have line information.
-	for filePath, results := range resp.Results {
-		if filePath == "" {
-			t.Error("Got empty file path in results map key")
+	// The response Results map has project names as keys.
+	// Check that each result has line information.
+	for project, results := range resp.Results {
+		if project == "" {
+			t.Error("Got empty project key in results map")
 		}
 		for i, r := range results {
 			// Each result should have line content
 			if r.Line == "" {
+				filePath := resultPathForProject(project, r)
 				t.Errorf("Result %d in file %s has no line content", i, filePath)
 			}
 		}
@@ -349,7 +387,7 @@ func TestIntegrationSymbolSearchLineNumbers(t *testing.T) {
 		t.Fatal("Expected search results for symbol 'gpa', got none")
 	}
 
-	// The response Results map has file paths as keys. Verify we have results.
+	// The response Results map has project names as keys. Verify we have results.
 	if len(resp.Results) == 0 {
 		t.Fatal("Expected results map to have entries")
 	}
@@ -360,13 +398,14 @@ func TestIntegrationSymbolSearchLineNumbers(t *testing.T) {
 	invalidLineNumbers := 0
 	totalResults := 0
 	var firstLineNo string
-	for filePath, results := range resp.Results {
+	for project, results := range resp.Results {
 		for i, r := range results {
 			totalResults++
 			lineNo := string(r.LineNo)
 			if firstLineNo == "" {
 				firstLineNo = lineNo
 			}
+			filePath := resultPathForProject(project, r)
 			t.Logf("Result %d: path=%s, lineNo=%q", i, filePath, lineNo)
 			if lineNo == "" || lineNo == "0" {
 				invalidLineNumbers++
@@ -405,7 +444,7 @@ func TestIntegrationFullTextSearchLineNumbers(t *testing.T) {
 		t.Fatal("Expected search results for full text 'mutex_enter', got none")
 	}
 
-	// The response Results map has file paths as keys. Verify we have results.
+	// The response Results map has project names as keys. Verify we have results.
 	if len(resp.Results) == 0 {
 		t.Fatal("Expected results map to have entries")
 	}
@@ -415,7 +454,7 @@ func TestIntegrationFullTextSearchLineNumbers(t *testing.T) {
 	invalidLineNumbers := 0
 	totalResults := 0
 	var firstLineNo string
-	for filePath, results := range resp.Results {
+	for project, results := range resp.Results {
 		for i, r := range results {
 			totalResults++
 			lineNo := string(r.LineNo)
@@ -426,6 +465,7 @@ func TestIntegrationFullTextSearchLineNumbers(t *testing.T) {
 			if len(linePreview) > 50 {
 				linePreview = linePreview[:50]
 			}
+			filePath := resultPathForProject(project, r)
 			t.Logf("Full text result %d: path=%s, lineNo=%q, line=%q", i, filePath, lineNo, linePreview)
 			if lineNo == "" || lineNo == "0" {
 				invalidLineNumbers++
@@ -644,7 +684,7 @@ func TestIntegrationCombinedSearch(t *testing.T) {
 		t.Fatal("Expected search results for definition 'kmem_alloc' in files matching 'kmem', got none")
 	}
 
-	// The response Results map has file paths as keys. Verify we have results.
+	// The response Results map has project names as keys. Verify we have results.
 	if len(resp.Results) == 0 {
 		t.Fatal("Expected results map to have entries")
 	}
@@ -652,10 +692,14 @@ func TestIntegrationCombinedSearch(t *testing.T) {
 	// Verify at least one file path contains 'kmem' (matching the path filter)
 	foundKmemFile := false
 	totalResults := 0
-	for filePath, results := range resp.Results {
+	for project, results := range resp.Results {
 		totalResults += len(results)
-		if strings.Contains(filePath, "kmem") {
-			foundKmemFile = true
+		for _, r := range results {
+			filePath := resultPathForProject(project, r)
+			if strings.Contains(filePath, "kmem") {
+				foundKmemFile = true
+				break
+			}
 		}
 	}
 

@@ -50,7 +50,10 @@ async function readAnnotations(storagePath, project, filePath) {
   });
 }
 
-async function saveAnnotation(storagePath, project, filePath, line, author, text, context) {
+async function saveAnnotation(storagePath, project, filePath, line, author, text, context, source) {
+  if (!source) {
+    throw new Error('Source code is required for saving annotations');
+  }
   return sendNativeMessage({
     action: 'save',
     storagePath,
@@ -59,7 +62,8 @@ async function saveAnnotation(storagePath, project, filePath, line, author, text
     line,
     author,
     text,
-    context
+    context,
+    source
   });
 }
 
@@ -102,6 +106,21 @@ async function pingNativeHost() {
   return sendNativeMessage({ action: 'ping' });
 }
 
+function encodePathForVSCodeUri(localPath) {
+  const normalized = String(localPath).replace(/\\/g, '/');
+  const hasLeadingSlash = normalized.startsWith('/');
+  const parts = normalized.split('/').filter((part, index) => !(hasLeadingSlash && index === 0));
+
+  const encoded = parts.map((part, index) => {
+    if (index === 0 && /^[A-Za-z]:$/.test(part)) {
+      return part;
+    }
+    return encodeURIComponent(part);
+  });
+
+  return (hasLeadingSlash ? '/' : '') + encoded.join('/');
+}
+
 // Open file in VS Code using vscode:// URI
 async function openInVSCode(data) {
   log.info('Opening in VS Code', { project: data.project, file: data.filePath, line: data.lineNumber });
@@ -122,7 +141,8 @@ async function openInVSCode(data) {
   }
 
   const localPath = `${workspaceRoot}/${data.filePath}`;
-  const vscodeUri = `vscode://file/${localPath}:${data.lineNumber}:1`;
+  const encodedPath = encodePathForVSCodeUri(localPath);
+  const vscodeUri = `vscode://file/${encodedPath}:${data.lineNumber}:1`;
   log.debug('VS Code URI', vscodeUri);
 
   try {
@@ -242,12 +262,7 @@ chrome.runtime.onInstalled.addListener(() => {
       documentUrlPatterns: ['*://*/source/xref/*']
     });
 
-    chrome.contextMenus.create({
-      id: 'add-annotation',
-      title: 'Add annotation to this line',
-      contexts: ['page', 'selection'],
-      documentUrlPatterns: ['*://*/source/xref/*']
-    });
+    // Note: 'Add annotation' context menu removed - use 'c' key while hovering a line number
 
     log.debug('Context menus created');
   });
@@ -277,14 +292,6 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
     chrome.tabs.sendMessage(tab.id, {
       action: 'openInVSCode',
       lineNumber: '1'
-    }, (response) => {
-      if (chrome.runtime.lastError) {
-        log.error('Failed to send context menu message', chrome.runtime.lastError);
-      }
-    });
-  } else if (info.menuItemId === 'add-annotation') {
-    chrome.tabs.sendMessage(tab.id, {
-      action: 'addAnnotationAtCursor'
     }, (response) => {
       if (chrome.runtime.lastError) {
         log.error('Failed to send context menu message', chrome.runtime.lastError);
@@ -351,7 +358,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       message.line,
       message.author,
       message.text,
-      message.context
+      message.context,
+      message.source
     )
       .then(sendResponse)
       .catch(err => sendResponse({ success: false, error: err.message }));

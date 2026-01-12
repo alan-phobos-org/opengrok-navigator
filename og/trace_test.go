@@ -189,19 +189,17 @@ func TestExtractCallers(t *testing.T) {
 	resp := &SearchResponse{
 		ResultCount: 3,
 		Results: map[string][]SearchResult{
-			"/project/src/file1.c": {
-				{Line: "ptr = malloc(size);", LineNo: "42"},
-				{Line: "buf = malloc(len);", LineNo: "100"},
-			},
-			"/project/src/file2.c": {
-				{Line: "data = malloc(n);", LineNo: "50"},
+			"project": {
+				{Line: "ptr = malloc(size);", LineNo: "42", Path: "/src/file1.c"},
+				{Line: "buf = malloc(len);", LineNo: "100", Path: "/src/file1.c"},
+				{Line: "data = malloc(n);", LineNo: "50", Path: "/src/file2.c"},
 			},
 		},
 	}
 
 	// Create a minimal client for testing (won't make real calls in this test)
 	client := &Client{BaseURL: "http://test"}
-	callers := extractCallers(client, resp, "malloc", false)
+	callers := extractCallers(client, "project", resp.Results["project"], "malloc", false)
 
 	// Should have 3 unique callers
 	if len(callers) != 3 {
@@ -241,15 +239,15 @@ func TestExtractCallersDeduplication(t *testing.T) {
 	resp := &SearchResponse{
 		ResultCount: 2,
 		Results: map[string][]SearchResult{
-			"/project/src/file.c": {
-				{Line: "call1", LineNo: "42"},
-				{Line: "call2", LineNo: "42"}, // Same line number - should be deduplicated
+			"project": {
+				{Line: "call1", LineNo: "42", Path: "/src/file.c"},
+				{Line: "call2", LineNo: "42", Path: "/src/file.c"}, // Same line number - should be deduplicated
 			},
 		},
 	}
 
 	client := &Client{BaseURL: "http://test"}
-	callers := extractCallers(client, resp, "test", false)
+	callers := extractCallers(client, "project", resp.Results["project"], "test", false)
 
 	// Should only have 1 caller after deduplication
 	if len(callers) != 1 {
@@ -261,17 +259,17 @@ func TestExtractCallersSkipsInvalidLineNumbers(t *testing.T) {
 	resp := &SearchResponse{
 		ResultCount: 3,
 		Results: map[string][]SearchResult{
-			"/project/src/file.c": {
-				{Line: "valid", LineNo: "42"},
+			"project": {
+				{Line: "valid", LineNo: "42", Path: "/src/file.c"},
 				{Line: "empty", LineNo: ""}, // Should be skipped
 				{Line: "zero", LineNo: "0"}, // Should be skipped
-				{Line: "another valid", LineNo: "100"},
+				{Line: "another valid", LineNo: "100", Path: "/src/file.c"},
 			},
 		},
 	}
 
 	client := &Client{BaseURL: "http://test"}
-	callers := extractCallers(client, resp, "test", false)
+	callers := extractCallers(client, "project", resp.Results["project"], "test", false)
 
 	// Should only have 2 callers (skipping empty and "0" line numbers)
 	if len(callers) != 2 {
@@ -398,17 +396,17 @@ func TestCallersSortedNumerically(t *testing.T) {
 	resp := &SearchResponse{
 		ResultCount: 4,
 		Results: map[string][]SearchResult{
-			"/project/src/file.c": {
-				{Line: "line 100", LineNo: "100"},
-				{Line: "line 42", LineNo: "42"},
-				{Line: "line 9", LineNo: "9"},
-				{Line: "line 1000", LineNo: "1000"},
+			"project": {
+				{Line: "line 100", LineNo: "100", Path: "/src/file.c"},
+				{Line: "line 42", LineNo: "42", Path: "/src/file.c"},
+				{Line: "line 9", LineNo: "9", Path: "/src/file.c"},
+				{Line: "line 1000", LineNo: "1000", Path: "/src/file.c"},
 			},
 		},
 	}
 
 	client := &Client{BaseURL: "http://test"}
-	callers := extractCallers(client, resp, "test", false)
+	callers := extractCallers(client, "project", resp.Results["project"], "test", false)
 
 	// Sort using the same logic as in Trace
 	sort.Slice(callers, func(i, j int) bool {
@@ -438,23 +436,19 @@ func TestCallersSortedByFileAndLine(t *testing.T) {
 	resp := &SearchResponse{
 		ResultCount: 6,
 		Results: map[string][]SearchResult{
-			"/b/file.c": {
-				{Line: "line 50", LineNo: "50"},
-				{Line: "line 10", LineNo: "10"},
-			},
-			"/a/file.c": {
-				{Line: "line 100", LineNo: "100"},
-				{Line: "line 5", LineNo: "5"},
-			},
-			"/c/file.c": {
-				{Line: "line 1", LineNo: "1"},
-				{Line: "line 999", LineNo: "999"},
+			"project": {
+				{Line: "line 50", LineNo: "50", Path: "/b/file.c"},
+				{Line: "line 10", LineNo: "10", Path: "/b/file.c"},
+				{Line: "line 100", LineNo: "100", Path: "/a/file.c"},
+				{Line: "line 5", LineNo: "5", Path: "/a/file.c"},
+				{Line: "line 1", LineNo: "1", Path: "/c/file.c"},
+				{Line: "line 999", LineNo: "999", Path: "/c/file.c"},
 			},
 		},
 	}
 
 	client := &Client{BaseURL: "http://test"}
-	callers := extractCallers(client, resp, "test", false)
+	callers := extractCallers(client, "project", resp.Results["project"], "test", false)
 
 	// Sort using the same logic as in Trace
 	sort.Slice(callers, func(i, j int) bool {
@@ -466,17 +460,17 @@ func TestCallersSortedByFileAndLine(t *testing.T) {
 		return lineI < lineJ
 	})
 
-	// Expected order: /a/file.c:5, /a/file.c:100, /b/file.c:10, /b/file.c:50, /c/file.c:1, /c/file.c:999
+	// Expected order: /project/a/file.c:5, /project/a/file.c:100, /project/b/file.c:10, /project/b/file.c:50, /project/c/file.c:1, /project/c/file.c:999
 	expectedOrder := []struct {
 		path   string
 		lineNo string
 	}{
-		{"/a/file.c", "5"},
-		{"/a/file.c", "100"},
-		{"/b/file.c", "10"},
-		{"/b/file.c", "50"},
-		{"/c/file.c", "1"},
-		{"/c/file.c", "999"},
+		{"/project/a/file.c", "5"},
+		{"/project/a/file.c", "100"},
+		{"/project/b/file.c", "10"},
+		{"/project/b/file.c", "50"},
+		{"/project/c/file.c", "1"},
+		{"/project/c/file.c", "999"},
 	}
 
 	if len(callers) != len(expectedOrder) {

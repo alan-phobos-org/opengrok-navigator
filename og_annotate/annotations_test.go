@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -14,12 +15,12 @@ func TestEncodeDecodeFilename(t *testing.T) {
 	}{
 		{"myproject", "src/main/App.java"},
 		{"myproject", "src/util.js"},
-		{"my__project", "src/file.go"},                  // Project with __
-		{"project", "src/my__file.js"},                  // File with __
-		{"proj", "deeply/nested/path/to/file.tsx"},      // Deep path
-		{"proj", "file.go"},                             // Root file
-		{"project-name", "path-with-dashes/file.ts"},    // Dashes
-		{"project_name", "path_with_underscores/f.js"},  // Single underscores
+		{"my__project", "src/file.go"},                 // Project with __
+		{"project", "src/my__file.js"},                 // File with __
+		{"proj", "deeply/nested/path/to/file.tsx"},     // Deep path
+		{"proj", "file.go"},                            // Root file
+		{"project-name", "path-with-dashes/file.ts"},   // Dashes
+		{"project_name", "path_with_underscores/f.js"}, // Single underscores
 	}
 
 	for _, tc := range tests {
@@ -47,9 +48,9 @@ func TestEncodeDecodeFilename(t *testing.T) {
 
 func TestDecodeFilenameInvalid(t *testing.T) {
 	tests := []string{
-		"not-an-annotation",      // No .md suffix
-		"single.md",              // No separator
-		".editing.md",            // Special file
+		"not-an-annotation", // No .md suffix
+		"single.md",         // No separator
+		".editing.md",       // Special file
 	}
 
 	for _, filename := range tests {
@@ -72,17 +73,21 @@ func TestReadAnnotationsNonexistent(t *testing.T) {
 	}
 }
 
+// Helper to create mock source content for tests
+func mockSourceContent(numLines int) string {
+	var lines []string
+	for i := 1; i <= numLines; i++ {
+		lines = append(lines, fmt.Sprintf("// line %d of source code", i))
+	}
+	return strings.Join(lines, "\n")
+}
+
 func TestSaveAndReadAnnotation(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	// Save an annotation
-	err := SaveAnnotation(tmpDir, "myproject", "src/App.java", 42, "alice", "TODO: refactor this", []string{
-		"    private Logger logger;",
-		"",
-		">>> public void process() {",
-		"",
-		"    if (input == null) {",
-	})
+	// Save an annotation with source content (required for v2 format)
+	sourceContent := mockSourceContent(50)
+	err := SaveAnnotationV2(tmpDir, "myproject", "src/App.java", 42, "alice", "TODO: refactor this", sourceContent, "")
 	if err != nil {
 		t.Fatalf("SaveAnnotation failed: %v", err)
 	}
@@ -107,28 +112,27 @@ func TestSaveAndReadAnnotation(t *testing.T) {
 	if ann.Text != "TODO: refactor this" {
 		t.Errorf("text: got %q, want %q", ann.Text, "TODO: refactor this")
 	}
-	if len(ann.Context) != 5 {
-		t.Errorf("context: got %d lines, want 5", len(ann.Context))
-	}
+	// Note: v2 format stores source inline, context is not returned in annotations
 }
 
 func TestSaveMultipleAnnotations(t *testing.T) {
 	tmpDir := t.TempDir()
+	sourceContent := mockSourceContent(30)
 
-	// Save first annotation
-	err := SaveAnnotation(tmpDir, "proj", "file.go", 10, "alice", "First note", nil)
+	// Save first annotation (with source content)
+	err := SaveAnnotationV2(tmpDir, "proj", "file.go", 10, "alice", "First note", sourceContent, "")
 	if err != nil {
 		t.Fatalf("SaveAnnotation 1 failed: %v", err)
 	}
 
-	// Save second annotation
-	err = SaveAnnotation(tmpDir, "proj", "file.go", 20, "bob", "Second note", nil)
+	// Save second annotation (file exists, no source needed)
+	err = SaveAnnotationV2(tmpDir, "proj", "file.go", 20, "bob", "Second note", "", "")
 	if err != nil {
 		t.Fatalf("SaveAnnotation 2 failed: %v", err)
 	}
 
 	// Save third annotation (between the two)
-	err = SaveAnnotation(tmpDir, "proj", "file.go", 15, "carol", "Middle note", nil)
+	err = SaveAnnotationV2(tmpDir, "proj", "file.go", 15, "carol", "Middle note", "", "")
 	if err != nil {
 		t.Fatalf("SaveAnnotation 3 failed: %v", err)
 	}
@@ -157,15 +161,16 @@ func TestSaveMultipleAnnotations(t *testing.T) {
 
 func TestUpdateExistingAnnotation(t *testing.T) {
 	tmpDir := t.TempDir()
+	sourceContent := mockSourceContent(50)
 
-	// Save initial
-	err := SaveAnnotation(tmpDir, "proj", "file.go", 42, "alice", "Original text", nil)
+	// Save initial (with source content)
+	err := SaveAnnotationV2(tmpDir, "proj", "file.go", 42, "alice", "Original text", sourceContent, "")
 	if err != nil {
 		t.Fatalf("SaveAnnotation failed: %v", err)
 	}
 
-	// Update same line
-	err = SaveAnnotation(tmpDir, "proj", "file.go", 42, "bob", "Updated text", nil)
+	// Update same line (file exists, no source needed)
+	err = SaveAnnotationV2(tmpDir, "proj", "file.go", 42, "bob", "Updated text", "", "")
 	if err != nil {
 		t.Fatalf("SaveAnnotation update failed: %v", err)
 	}
@@ -190,10 +195,11 @@ func TestUpdateExistingAnnotation(t *testing.T) {
 
 func TestDeleteAnnotation(t *testing.T) {
 	tmpDir := t.TempDir()
+	sourceContent := mockSourceContent(30)
 
 	// Save two annotations
-	SaveAnnotation(tmpDir, "proj", "file.go", 10, "alice", "First", nil)
-	SaveAnnotation(tmpDir, "proj", "file.go", 20, "bob", "Second", nil)
+	SaveAnnotationV2(tmpDir, "proj", "file.go", 10, "alice", "First", sourceContent, "")
+	SaveAnnotationV2(tmpDir, "proj", "file.go", 20, "bob", "Second", "", "")
 
 	// Delete first
 	err := DeleteAnnotation(tmpDir, "proj", "file.go", 10)
@@ -218,9 +224,10 @@ func TestDeleteAnnotation(t *testing.T) {
 
 func TestDeleteLastAnnotationRemovesFile(t *testing.T) {
 	tmpDir := t.TempDir()
+	sourceContent := mockSourceContent(20)
 
 	// Save one annotation
-	SaveAnnotation(tmpDir, "proj", "file.go", 10, "alice", "Only one", nil)
+	SaveAnnotationV2(tmpDir, "proj", "file.go", 10, "alice", "Only one", sourceContent, "")
 
 	// Delete it
 	err := DeleteAnnotation(tmpDir, "proj", "file.go", 10)
@@ -323,12 +330,13 @@ func TestEditTrackingMultipleUsers(t *testing.T) {
 
 func TestListAnnotatedFiles(t *testing.T) {
 	tmpDir := t.TempDir()
+	sourceContent := mockSourceContent(30)
 
 	// Save annotations in different files
-	SaveAnnotation(tmpDir, "proj", "src/App.java", 10, "alice", "Note 1", nil)
-	SaveAnnotation(tmpDir, "proj", "src/App.java", 20, "bob", "Note 2", nil)
-	SaveAnnotation(tmpDir, "proj", "src/Util.java", 5, "carol", "Note 3", nil)
-	SaveAnnotation(tmpDir, "other", "file.go", 1, "dave", "Different project", nil)
+	SaveAnnotationV2(tmpDir, "proj", "src/App.java", 10, "alice", "Note 1", sourceContent, "")
+	SaveAnnotationV2(tmpDir, "proj", "src/App.java", 20, "bob", "Note 2", "", "")
+	SaveAnnotationV2(tmpDir, "proj", "src/Util.java", 5, "carol", "Note 3", sourceContent, "")
+	SaveAnnotationV2(tmpDir, "other", "file.go", 1, "dave", "Different project", sourceContent, "")
 
 	// List all for proj
 	results, err := ListAnnotatedFiles(tmpDir, "proj")
@@ -350,6 +358,7 @@ func TestListAnnotatedFiles(t *testing.T) {
 
 func TestMultilineAnnotationText(t *testing.T) {
 	tmpDir := t.TempDir()
+	sourceContent := mockSourceContent(50)
 
 	multilineText := `This is line 1.
 This is line 2.
@@ -359,7 +368,7 @@ This is line 4 after blank.
 - List item 1
 - List item 2`
 
-	err := SaveAnnotation(tmpDir, "proj", "file.go", 42, "alice", multilineText, nil)
+	err := SaveAnnotationV2(tmpDir, "proj", "file.go", 42, "alice", multilineText, sourceContent, "")
 	if err != nil {
 		t.Fatalf("SaveAnnotation failed: %v", err)
 	}
@@ -378,12 +387,33 @@ This is line 4 after blank.
 	}
 }
 
+func TestReadAnnotationsWithLongLine(t *testing.T) {
+	tmpDir := t.TempDir()
+	longLine := strings.Repeat("a", 200000)
+	sourceContent := longLine + "\nshort line"
+
+	err := SaveAnnotationV2(tmpDir, "proj", "file.go", 1, "alice", "Note", sourceContent, "")
+	if err != nil {
+		t.Fatalf("SaveAnnotation failed: %v", err)
+	}
+
+	annotations, err := ReadAnnotations(tmpDir, "proj", "file.go")
+	if err != nil {
+		t.Fatalf("ReadAnnotations failed: %v", err)
+	}
+
+	if len(annotations) != 1 {
+		t.Fatalf("expected 1 annotation, got %d", len(annotations))
+	}
+}
+
 func TestStoragePathCreation(t *testing.T) {
 	tmpDir := t.TempDir()
 	nestedPath := filepath.Join(tmpDir, "a", "b", "c")
+	sourceContent := mockSourceContent(10)
 
 	// Save should create nested directories
-	err := SaveAnnotation(nestedPath, "proj", "file.go", 1, "alice", "Note", nil)
+	err := SaveAnnotationV2(nestedPath, "proj", "file.go", 1, "alice", "Note", sourceContent, "")
 	if err != nil {
 		t.Fatalf("SaveAnnotation with nested path failed: %v", err)
 	}
@@ -416,7 +446,11 @@ func TestHandleRequestMissingFields(t *testing.T) {
 		},
 		{
 			name:    "save missing line",
-			request: Request{Action: "save", StoragePath: "/tmp", Project: "p", FilePath: "f", Author: "a", Text: "t"},
+			request: Request{Action: "save", StoragePath: "/tmp", Project: "p", FilePath: "f", Author: "a", Text: "t", Source: "src"},
+		},
+		{
+			name:    "save missing source",
+			request: Request{Action: "save", StoragePath: "/tmp", Project: "p", FilePath: "f", Line: 1, Author: "a", Text: "t"},
 		},
 		{
 			name:    "delete missing line",
@@ -444,5 +478,73 @@ func TestHandleRequestUnknownAction(t *testing.T) {
 	}
 	if !strings.Contains(resp.Error, "Unknown action") {
 		t.Errorf("error should mention unknown action: %s", resp.Error)
+	}
+}
+
+// TestSaveAnnotationWrapperFirstAnnotation tests the SaveAnnotation wrapper
+// that main.go uses. This is the actual code path from Chrome extension.
+// The wrapper must work for the first annotation even without sourceContent.
+func TestSaveAnnotationWrapperFirstAnnotation(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Use SaveAnnotation (the wrapper) not SaveAnnotationV2
+	// This is what handleRequest calls for "save" action
+	context := []string{"line before", "annotated line", "line after"}
+	err := SaveAnnotation(tmpDir, "proj", "file.go", 10, "alice", "First note", context)
+	if err != nil {
+		t.Fatalf("SaveAnnotation wrapper failed for first annotation: %v", err)
+	}
+
+	// Verify annotation was saved
+	annotations, err := ReadAnnotations(tmpDir, "proj", "file.go")
+	if err != nil {
+		t.Fatalf("ReadAnnotations failed: %v", err)
+	}
+
+	if len(annotations) != 1 {
+		t.Fatalf("expected 1 annotation, got %d", len(annotations))
+	}
+
+	if annotations[0].Text != "First note" {
+		t.Errorf("text: got %q, want %q", annotations[0].Text, "First note")
+	}
+}
+
+// TestHandleRequestSaveFirstAnnotation tests the full request handling path
+// for saving the first annotation - the actual code path from Chrome.
+func TestHandleRequestSaveFirstAnnotation(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	req := Request{
+		Action:      "save",
+		StoragePath: tmpDir,
+		Project:     "myproject",
+		FilePath:    "src/App.java",
+		Line:        3,
+		Author:      "alice",
+		Text:        "TODO: fix this",
+		Context:     []string{"before", "current", "after"},
+		Source:      "package main;\n\npublic class App {\n    // lots of code here\n}",
+	}
+
+	resp := handleRequest(req)
+	if !resp.Success {
+		t.Fatalf("handleRequest save failed: %s", resp.Error)
+	}
+
+	// Verify via read
+	readResp := handleRequest(Request{
+		Action:      "read",
+		StoragePath: tmpDir,
+		Project:     "myproject",
+		FilePath:    "src/App.java",
+	})
+
+	if !readResp.Success {
+		t.Fatalf("handleRequest read failed: %s", readResp.Error)
+	}
+
+	if len(readResp.Annotations) != 1 {
+		t.Fatalf("expected 1 annotation, got %d", len(readResp.Annotations))
 	}
 }

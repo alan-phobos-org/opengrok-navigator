@@ -1,0 +1,92 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://opengrok-navigator.github.io/schema/response.schema.json",
+  "title": "og_annotate Response",
+  "description": "Response message from og_annotate native host to Chrome extension",
+  "type": "object",
+  "required": ["success"],
+  "properties": {
+    "success": {
+      "type": "boolean",
+      "description": "Whether the operation succeeded"
+    },
+    "error": {
+      "type": "string",
+      "description": "Error message if success is false"
+    },
+    "annotations": {
+      "type": "array",
+      "description": "List of annotations (for read/listAnnotatedFiles)",
+      "items": {
+        "$ref": "#/definitions/Annotation"
+      }
+    },
+    "editing": {
+      "type": "array",
+      "description": "List of users currently editing (for getEditing)",
+      "items": {
+        "$ref": "#/definitions/EditEntry"
+      }
+    }
+  },
+  "definitions": {
+    "Annotation": {
+      "type": "object",
+      "required": ["line", "author", "timestamp", "text"],
+      "properties": {
+        "line": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Line number of the annotation"
+        },
+        "author": {
+          "type": "string",
+          "description": "Author of the annotation"
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO 8601 timestamp of when annotation was created/updated"
+        },
+        "text": {
+          "type": "string",
+          "description": "Annotation text content"
+        },
+        "context": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Context lines around the annotation"
+        },
+        "filePath": {
+          "type": "string",
+          "description": "File path (only in listAnnotatedFiles response)"
+        }
+      }
+    },
+    "EditEntry": {
+      "type": "object",
+      "required": ["user", "filePath", "line", "timestamp"],
+      "properties": {
+        "user": {
+          "type": "string",
+          "description": "Username of editor"
+        },
+        "filePath": {
+          "type": "string",
+          "description": "File being edited"
+        },
+        "line": {
+          "type": "integer",
+          "description": "Line being edited"
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "description": "When editing started"
+        }
+      }
+    }
+  },
+  "if": { "properties": { "success": { "const": false } } },
+  "then": { "required": ["error"] }
+}

@@ -105,7 +105,10 @@ func Trace(client *Client, opts TraceOptions) (*TraceResult, error) {
 		// Group results by file and extract unique caller locations
 		// Use xref API to extract function names when depth allows deeper traversal
 		useXref := opts.Depth > 1
-		callers := extractCallers(client, resp, item.node.Symbol, useXref)
+		var callers []callerInfo
+		for project, results := range resp.Results {
+			callers = append(callers, extractCallers(client, project, results, item.node.Symbol, useXref)...)
+		}
 
 		// Sort callers for deterministic output (numerically by line number)
 		sort.Slice(callers, func(i, j int) bool {
@@ -168,52 +171,84 @@ type callerInfo struct {
 // extractCallers extracts caller information from search results
 // If useXref is true, fetches surrounding context to determine enclosing function names
 // This enables depth > 1 traversal but is slower due to additional API calls
-func extractCallers(client *Client, resp *SearchResponse, searchedSymbol string, useXref bool) []callerInfo {
+func extractCallers(client *Client, project string, results []SearchResult, searchedSymbol string, useXref bool) []callerInfo {
 	var callers []callerInfo
 	seen := make(map[string]bool)
 
 	// Cache file contents to avoid refetching the same file for multiple line numbers
 	fileCache := make(map[string][]string)
 
-	for filePath, results := range resp.Results {
-		for _, r := range results {
-			lineNo := string(r.LineNo)
-			if lineNo == "" || lineNo == "0" {
-				continue
-			}
-
-			// Create a unique key for this location
-			key := filePath + ":" + lineNo
-			if seen[key] {
-				continue
-			}
-			seen[key] = true
-
-			var symbol string
-			if useXref {
-				// Fetch surrounding context to find enclosing function
-				// This is slower but enables multi-level traversal
-				lineNoInt := 0
-				fmt.Sscanf(lineNo, "%d", &lineNoInt)
-				if lineNoInt > 0 {
-					symbol = extractFunctionNameFromContextCached(client, filePath, lineNoInt, fileCache)
-				}
-			}
-
-			// Fallback to simple line-based extraction if xref didn't work
-			if symbol == "" {
-				symbol = extractSymbolFromLine(r.Line, searchedSymbol)
-			}
-
-			callers = append(callers, callerInfo{
-				Symbol:   symbol,
-				FilePath: filePath,
-				LineNo:   lineNo,
-			})
+	for _, r := range results {
+		lineNo := string(r.LineNo)
+		if lineNo == "" || lineNo == "0" {
+			continue
 		}
+
+		filePath := buildTraceFilePath(project, r)
+		if filePath == "" {
+			continue
+		}
+
+		// Create a unique key for this location
+		key := filePath + ":" + lineNo
+		if seen[key] {
+			continue
+		}
+		seen[key] = true
+
+		var symbol string
+		if useXref {
+			// Fetch surrounding context to find enclosing function
+			// This is slower but enables multi-level traversal
+			lineNoInt := 0
+			fmt.Sscanf(lineNo, "%d", &lineNoInt)
+			if lineNoInt > 0 {
+				symbol = extractFunctionNameFromContextCached(client, filePath, lineNoInt, fileCache)
+			}
+		}
+
+		// Fallback to simple line-based extraction if xref didn't work
+		if symbol == "" {
+			symbol = extractSymbolFromLine(r.Line, searchedSymbol)
+		}
+
+		callers = append(callers, callerInfo{
+			Symbol:   symbol,
+			FilePath: filePath,
+			LineNo:   lineNo,
+		})
 	}
 
 	return callers
+}
+
+func buildTraceFilePath(project string, result SearchResult) string {
+	path := result.Path
+	if path == "" && (result.Directory != "" || result.Filename != "") {
+		dir := strings.TrimSuffix(result.Directory, "/")
+		if dir != "" && result.Filename != "" {
+			path = dir + "/" + result.Filename
+		} else if result.Filename != "" {
+			path = result.Filename
+		} else {
+			path = dir
+		}
+	}
+
+	path = strings.TrimPrefix(path, "/")
+	if project != "" && strings.HasPrefix(path, project+"/") {
+		path = strings.TrimPrefix(path, project+"/")
+	}
+	if project != "" {
+		if path == "" {
+			return "/" + project
+		}
+		return "/" + project + "/" + path
+	}
+	if path == "" {
+		return ""
+	}
+	return "/" + path
 }
 
 // extractSymbolFromLine attempts to extract a caller function name from a source line

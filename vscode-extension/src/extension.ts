@@ -132,6 +132,44 @@ interface OpenGrokAPIResponse {
     resultCount?: number;
 }
 
+function parseResultKey(key: string, fallbackProject: string): { project: string; pathFromKey: string } {
+    const trimmed = key.startsWith('/') ? key.substring(1) : key;
+    const parts = trimmed.split('/');
+    if (parts.length > 1) {
+        const candidateProject = parts[0];
+        if (fallbackProject &&
+            candidateProject !== fallbackProject &&
+            !trimmed.startsWith(fallbackProject + '/')) {
+            return { project: fallbackProject, pathFromKey: trimmed };
+        }
+        return { project: candidateProject, pathFromKey: parts.slice(1).join('/') };
+    }
+    return { project: trimmed || fallbackProject, pathFromKey: '' };
+}
+
+function normalizeResultPath(project: string, rawPath: string | undefined, directory: string | undefined, filename: string | undefined, pathFromKey: string): string {
+    let filePath = rawPath || '';
+    if (!filePath && pathFromKey) {
+        filePath = pathFromKey;
+    }
+    if (!filePath && (directory || filename)) {
+        const cleanDir = (directory || '').replace(/\/$/, '');
+        if (cleanDir && filename) {
+            filePath = `${cleanDir}/${filename}`;
+        } else if (filename) {
+            filePath = filename;
+        } else {
+            filePath = cleanDir;
+        }
+    }
+
+    filePath = filePath.replace(/^\/+/, '');
+    if (project && filePath.startsWith(project + '/')) {
+        filePath = filePath.substring(project.length + 1);
+    }
+    return filePath;
+}
+
 // Function to perform OpenGrok API search
 async function searchOpenGrokAPI(baseUrl: string, searchText: string, projectName: string, context: vscode.ExtensionContext, outputChannel?: vscode.OutputChannel): Promise<any> {
     return new Promise(async (resolve, reject) => {
@@ -282,7 +320,7 @@ async function searchOpenGrokAPI(baseUrl: string, searchText: string, projectNam
 }
 
 // Parse OpenGrok JSON API search results
-function parseOpenGrokJSON(data: any, baseUrl: string, projectName: string, useTopLevelFolder: boolean, searchTerm: string): SearchResultFile[] {
+export function parseOpenGrokJSON(data: any, baseUrl: string, projectName: string, useTopLevelFolder: boolean, searchTerm: string): SearchResultFile[] {
     const workspaceFolders = vscode.workspace.workspaceFolders;
     const config = vscode.workspace.getConfiguration('opengrok-navigator');
     const contextLength = config.get<number>('contextLength', 300);
@@ -302,23 +340,18 @@ function parseOpenGrokJSON(data: any, baseUrl: string, projectName: string, useT
     }
 
     // Iterate through each file and its results
-    for (const fullFilePath in resultsObject) {
-        const fileResults = resultsObject[fullFilePath];
+    for (const resultKey in resultsObject) {
+        const fileResults = resultsObject[resultKey];
 
         if (!Array.isArray(fileResults)) {
             continue;
         }
 
+        const keyInfo = parseResultKey(resultKey, projectName);
         for (const result of fileResults) {
-            // Extract file path - remove leading project path if present
-            // Full path might be: "/project-name/path/to/file.c"
-            let filePath = fullFilePath;
-            if (filePath.startsWith('/')) {
-                filePath = filePath.substring(1); // Remove leading slash
-            }
-            // If path starts with project name, remove it
-            if (projectName && filePath.startsWith(projectName + '/')) {
-                filePath = filePath.substring(projectName.length + 1);
+            const projectForResult = keyInfo.project || projectName;
+            if (!projectForResult) {
+                continue;
             }
 
             // Get line number and context from the result object
@@ -354,6 +387,19 @@ function parseOpenGrokJSON(data: any, baseUrl: string, projectName: string, useT
                 continue;
             }
 
+            // Normalize file path from result data
+            const filePath = normalizeResultPath(
+                projectForResult,
+                result.path || result.filePath || result.file,
+                result.directory,
+                result.filename,
+                keyInfo.pathFromKey
+            );
+
+            if (!filePath) {
+                continue;
+            }
+
             // Create unique key for this result
             const uniqueKey = `${filePath}:${lineNumber}`;
             if (seen.has(uniqueKey)) {
@@ -362,7 +408,7 @@ function parseOpenGrokJSON(data: any, baseUrl: string, projectName: string, useT
             seen.add(uniqueKey);
 
             // Construct OpenGrok URL for this result
-            const openGrokPath = `/xref/${projectName}/${filePath}#${lineNumber}`;
+            const openGrokPath = `/xref/${projectForResult}/${filePath}#${lineNumber}`;
             const fullUrl = `${baseUrl}${openGrokPath}`;
 
             // Extract filename from path
@@ -383,7 +429,7 @@ function parseOpenGrokJSON(data: any, baseUrl: string, projectName: string, useT
             if (workspaceFolders && workspaceFolders.length > 0) {
                 if (useTopLevelFolder) {
                     // Path includes project name as top-level folder
-                    localFilePath = path.join(workspaceFolders[0].uri.fsPath, projectName, filePath);
+                    localFilePath = path.join(workspaceFolders[0].uri.fsPath, projectForResult, filePath);
                 } else {
                     // Path is relative to workspace root
                     localFilePath = path.join(workspaceFolders[0].uri.fsPath, filePath);
@@ -424,7 +470,7 @@ function parseOpenGrokJSON(data: any, baseUrl: string, projectName: string, useT
 }
 
 // Parse OpenGrok HTML search results
-function parseOpenGrokResults(html: string, baseUrl: string, projectName: string, useTopLevelFolder: boolean, searchTerm: string, outputChannel?: vscode.OutputChannel): SearchResultFile[] {
+export function parseOpenGrokResults(html: string, baseUrl: string, projectName: string, useTopLevelFolder: boolean, searchTerm: string, outputChannel?: vscode.OutputChannel): SearchResultFile[] {
     const workspaceFolders = vscode.workspace.workspaceFolders;
     const config = vscode.workspace.getConfiguration('opengrok-navigator');
     const contextLength = config.get<number>('contextLength', 300);
@@ -528,6 +574,14 @@ function parseOpenGrokResults(html: string, baseUrl: string, projectName: string
 
         const fullUrl = href.startsWith('http') ? href : `${baseUrl}${href}`;
 
+        let projectForResult = projectName;
+        let pathAfterProject = '';
+        const xrefMatch = pathWithoutAnchor.match(/\/xref\/([^/]+)\/(.+)/);
+        if (xrefMatch) {
+            projectForResult = xrefMatch[1];
+            pathAfterProject = xrefMatch[2];
+        }
+
         // Extract filename from path
         const pathParts = pathWithoutAnchor.split('/');
         const filename = pathParts[pathParts.length - 1];
@@ -545,14 +599,10 @@ function parseOpenGrokResults(html: string, baseUrl: string, projectName: string
         let localFilePath: string | undefined;
         if (workspaceFolders && workspaceFolders.length > 0) {
             // Extract the path after /xref/{projectName}/
-            const xrefIndex = pathWithoutAnchor.indexOf('/xref/');
-            if (xrefIndex !== -1) {
-                const afterXref = pathWithoutAnchor.substring(xrefIndex + 6); // Skip '/xref/'
-                const pathAfterProject = afterXref.substring(afterXref.indexOf('/') + 1);
-
+            if (pathAfterProject) {
                 if (useTopLevelFolder) {
                     // Path includes project name as top-level folder
-                    localFilePath = path.join(workspaceFolders[0].uri.fsPath, projectName, pathAfterProject);
+                    localFilePath = path.join(workspaceFolders[0].uri.fsPath, projectForResult, pathAfterProject);
                 } else {
                     // Path is relative to workspace root
                     localFilePath = path.join(workspaceFolders[0].uri.fsPath, pathAfterProject);

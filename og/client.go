@@ -197,6 +197,61 @@ type SearchResponse struct {
 	Results       map[string][]SearchResult `json:"results"`
 }
 
+func normalizeResultsByProject(results map[string][]SearchResult) map[string][]SearchResult {
+	normalized := make(map[string][]SearchResult)
+
+	for key, entries := range results {
+		project, keyPath := parseResultKey(key)
+
+		// If key doesn't include a path, treat it as a project name.
+		if project == "" {
+			project = key
+		}
+
+		for _, entry := range entries {
+			entry.Path = normalizeResultPath(project, keyPath, entry)
+			normalized[project] = append(normalized[project], entry)
+		}
+	}
+
+	return normalized
+}
+
+func parseResultKey(key string) (project string, keyPath string) {
+	trimmed := strings.TrimPrefix(key, "/")
+	if strings.Contains(trimmed, "/") {
+		parts := strings.SplitN(trimmed, "/", 2)
+		return parts[0], parts[1]
+	}
+	return "", ""
+}
+
+func normalizeResultPath(project, keyPath string, entry SearchResult) string {
+	path := entry.Path
+	if path == "" && keyPath != "" {
+		path = "/" + keyPath
+	}
+	if path == "" && (entry.Directory != "" || entry.Filename != "") {
+		dir := strings.TrimSuffix(entry.Directory, "/")
+		if dir != "" && entry.Filename != "" {
+			path = dir + "/" + entry.Filename
+		} else if entry.Filename != "" {
+			path = entry.Filename
+		} else {
+			path = dir
+		}
+	}
+
+	path = strings.TrimPrefix(path, "/")
+	if project != "" && strings.HasPrefix(path, project+"/") {
+		path = strings.TrimPrefix(path, project+"/")
+	}
+	if path == "" {
+		return ""
+	}
+	return "/" + path
+}
+
 // SearchOptions contains optional parameters for the search
 type SearchOptions struct {
 	// Full search (searches all text)
@@ -287,6 +342,10 @@ func (c *Client) Search(opts SearchOptions) (*SearchResponse, error) {
 	var searchResp SearchResponse
 	if err := json.Unmarshal(body, &searchResp); err != nil {
 		return nil, fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	if searchResp.Results != nil {
+		searchResp.Results = normalizeResultsByProject(searchResp.Results)
 	}
 
 	return &searchResp, nil

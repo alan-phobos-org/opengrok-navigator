@@ -88,6 +88,11 @@ export const test = base.extend<TestFixtures>({
 export { expect } from '@playwright/test';
 
 /**
+ * Alias for live tests (same as test, but semantic separation)
+ */
+export const liveTest = test;
+
+/**
  * Helper to configure extension settings via chrome.storage
  */
 export async function configureExtension(
@@ -110,21 +115,24 @@ export async function configureExtension(
   // Fill in settings based on what's provided
   if (settings.projectMappings) {
     for (const [project, localPath] of Object.entries(settings.projectMappings)) {
-      await optionsPage.fill('#project-input', project);
-      await optionsPage.fill('#path-input', localPath);
-      await optionsPage.click('#add-mapping');
+      // Click "Add Mapping" button to add a new row
+      await optionsPage.click('#addMapping');
+      // Wait for the new row to appear
+      await optionsPage.waitForSelector('#mappings .mapping:last-child');
+      // Fill in the inputs in the last mapping row
+      const lastRow = optionsPage.locator('#mappings .mapping').last();
+      const inputs = lastRow.locator('input');
+      await inputs.nth(0).fill(project);
+      await inputs.nth(1).fill(localPath);
     }
   }
 
   if (settings.defaultWorkspaceRoot) {
-    await optionsPage.fill('#default-root', settings.defaultWorkspaceRoot);
+    await optionsPage.fill('#defaultWorkspaceRoot', settings.defaultWorkspaceRoot);
   }
 
-  // Save settings
-  const saveButton = optionsPage.locator('button:has-text("Save")');
-  if (await saveButton.isVisible()) {
-    await saveButton.click();
-  }
+  // Settings auto-save after input changes, wait for debounce
+  await optionsPage.waitForTimeout(600);
 
   await optionsPage.close();
 }
@@ -271,6 +279,11 @@ export async function mockNativeMessaging(page: Page) {
             return;
 
           case 'annotation:save':
+            // CRITICAL: Source code must be provided
+            if (!message.source || typeof message.source !== 'string' || message.source.length === 0) {
+              callback?.({ success: false, error: 'Source code is required for saving annotations' });
+              return;
+            }
             if (!mockAnnotations[key]) mockAnnotations[key] = [];
             const existing = mockAnnotations[key].findIndex((a) => a.line === message.line);
             const ann = {
@@ -278,6 +291,7 @@ export async function mockNativeMessaging(page: Page) {
               content: message.content,
               author: message.author || 'Test User',
               timestamp: new Date().toISOString(),
+              source: message.source, // Store for test verification
             };
             if (existing >= 0) {
               mockAnnotations[key][existing] = ann;

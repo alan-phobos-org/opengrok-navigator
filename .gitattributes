@@ -1,0 +1,4 @@
+# Exclude from git archive (source distributions)
+chrome-extension/examples/ export-ignore
+chrome-extension/test-results/ export-ignore
+chrome-extension/tests/fixtures/ export-ignore

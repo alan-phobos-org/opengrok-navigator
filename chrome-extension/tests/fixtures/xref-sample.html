@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>illumos-gate/usr/src/common/mpi/mpi.c - OpenGrok cross reference</title>
+  <style>
+    body { font-family: monospace; margin: 0; padding: 10px; }
+    pre { margin: 0; white-space: pre-wrap; }
+    a.l, a.hl { display: inline-block; width: 60px; text-align: right; padding-right: 10px; text-decoration: none; color: #666; }
+    a.hl { background-color: #ff9; }
+    span.c { color: #080; } /* comments */
+    span.n { color: #00f; } /* numbers */
+    span.s { color: #a00; } /* strings */
+    span.k { color: #008; font-weight: bold; } /* keywords */
+    #content { padding: 20px; }
+  </style>
+</head>
+<body>
+  <div id="content">
+    <pre id="whole_file">
+<a class="l" name="1" href="#1"><span class="l">     1</span></a><span class="c">/*
+</span><a class="l" name="2" href="#2"><span class="l">     2</span></a><span class="c"> * MPI - Multi Precision Integer library
+</span><a class="l" name="3" href="#3"><span class="l">     3</span></a><span class="c"> * Copyright (c) 2024 OpenGrok Project
+</span><a class="l" name="4" href="#4"><span class="l">     4</span></a><span class="c"> */
+</span><a class="l" name="5" href="#5"><span class="l">     5</span></a>
+<a class="l" name="6" href="#6"><span class="l">     6</span></a><span class="k">#include</span> <span class="s">&lt;stdio.h&gt;</span>
+<a class="l" name="7" href="#7"><span class="l">     7</span></a><span class="k">#include</span> <span class="s">&lt;stdlib.h&gt;</span>
+<a class="l" name="8" href="#8"><span class="l">     8</span></a><span class="k">#include</span> <span class="s">&lt;string.h&gt;</span>
+<a class="l" name="9" href="#9"><span class="l">     9</span></a><span class="k">#include</span> <span class="s">"mpi.h"</span>
+<a class="l" name="10" href="#10"><span class="l">    10</span></a>
+<a class="l" name="11" href="#11"><span class="l">    11</span></a><span class="c">/* Initialize an MPI integer */
+</span><a class="l" name="12" href="#12"><span class="l">    12</span></a><span class="k">int</span> mpi_init(mpi_t *mp) {
+<a class="l" name="13" href="#13"><span class="l">    13</span></a>    <span class="k">if</span> (mp == NULL) {
+<a class="l" name="14" href="#14"><span class="l">    14</span></a>        <span class="k">return</span> MPI_ERR_NULL;
+<a class="l" name="15" href="#15"><span class="l">    15</span></a>    }
+<a class="l" name="16" href="#16"><span class="l">    16</span></a>    mp-&gt;data = NULL;
+<a class="l" name="17" href="#17"><span class="l">    17</span></a>    mp-&gt;size = <span class="n">0</span>;
+<a class="l" name="18" href="#18"><span class="l">    18</span></a>    mp-&gt;alloc = <span class="n">0</span>;
+<a class="l" name="19" href="#19"><span class="l">    19</span></a>    mp-&gt;sign = <span class="n">1</span>;
+<a class="l" name="20" href="#20"><span class="l">    20</span></a>    <span class="k">return</span> MPI_OK;
+<a class="l" name="21" href="#21"><span class="l">    21</span></a>}
+<a class="l" name="22" href="#22"><span class="l">    22</span></a>
+<a class="l" name="23" href="#23"><span class="l">    23</span></a><span class="c">/* Free an MPI integer */
+</span><a class="l" name="24" href="#24"><span class="l">    24</span></a><span class="k">void</span> mpi_free(mpi_t *mp) {
+<a class="l" name="25" href="#25"><span class="l">    25</span></a>    <span class="k">if</span> (mp != NULL &amp;&amp; mp-&gt;data != NULL) {
+<a class="l" name="26" href="#26"><span class="l">    26</span></a>        free(mp-&gt;data);
+<a class="l" name="27" href="#27"><span class="l">    27</span></a>        mp-&gt;data = NULL;
+<a class="l" name="28" href="#28"><span class="l">    28</span></a>    }
+<a class="l" name="29" href="#29"><span class="l">    29</span></a>}
+<a class="l" name="30" href="#30"><span class="l">    30</span></a>
+<a class="l" name="31" href="#31"><span class="l">    31</span></a><span class="c">/* Set MPI from unsigned long */
+</span><a class="l" name="32" href="#32"><span class="l">    32</span></a><span class="k">int</span> mpi_set_ulong(mpi_t *mp, <span class="k">unsigned long</span> val) {
+<a class="l" name="33" href="#33"><span class="l">    33</span></a>    <span class="k">if</span> (mp == NULL) {
+<a class="l" name="34" href="#34"><span class="l">    34</span></a>        <span class="k">return</span> MPI_ERR_NULL;
+<a class="l" name="35" href="#35"><span class="l">    35</span></a>    }
+<a class="l" name="36" href="#36"><span class="l">    36</span></a>    mp-&gt;sign = <span class="n">1</span>;
+<a class="l" name="37" href="#37"><span class="l">    37</span></a>    <span class="k">if</span> (val == <span class="n">0</span>) {
+<a class="l" name="38" href="#38"><span class="l">    38</span></a>        mp-&gt;size = <span class="n">0</span>;
+<a class="l" name="39" href="#39"><span class="l">    39</span></a>        <span class="k">return</span> MPI_OK;
+<a class="l" name="40" href="#40"><span class="l">    40</span></a>    }
+<a class="l" name="41" href="#41"><span class="l">    41</span></a>    <span class="c">/* Allocate space for the value */
+</span><a class="l" name="42" href="#42"><span class="l">    42</span></a>    <span class="k">if</span> (mpi_grow(mp, <span class="n">1</span>) != MPI_OK) {
+<a class="l" name="43" href="#43"><span class="l">    43</span></a>        <span class="k">return</span> MPI_ERR_NOMEM;
+<a class="l" name="44" href="#44"><span class="l">    44</span></a>    }
+<a class="l" name="45" href="#45"><span class="l">    45</span></a>    mp-&gt;data[<span class="n">0</span>] = val;
+<a class="l" name="46" href="#46"><span class="l">    46</span></a>    mp-&gt;size = <span class="n">1</span>;
+<a class="l" name="47" href="#47"><span class="l">    47</span></a>    <span class="k">return</span> MPI_OK;
+<a class="l" name="48" href="#48"><span class="l">    48</span></a>}
+<a class="l" name="49" href="#49"><span class="l">    49</span></a>
+<a class="l" name="50" href="#50"><span class="l">    50</span></a><span class="c">/* Add two MPI integers */
+</span><a class="l" name="51" href="#51"><span class="l">    51</span></a><span class="k">int</span> mpi_add(mpi_t *result, <span class="k">const</span> mpi_t *a, <span class="k">const</span> mpi_t *b) {
+<a class="l" name="52" href="#52"><span class="l">    52</span></a>    <span class="k">if</span> (result == NULL || a == NULL || b == NULL) {
+<a class="l" name="53" href="#53"><span class="l">    53</span></a>        <span class="k">return</span> MPI_ERR_NULL;
+<a class="l" name="54" href="#54"><span class="l">    54</span></a>    }
+<a class="l" name="55" href="#55"><span class="l">    55</span></a>    <span class="c">/* Handle signs */
+</span><a class="l" name="56" href="#56"><span class="l">    56</span></a>    <span class="k">if</span> (a-&gt;sign == b-&gt;sign) {
+<a class="l" name="57" href="#57"><span class="l">    57</span></a>        result-&gt;sign = a-&gt;sign;
+<a class="l" name="58" href="#58"><span class="l">    58</span></a>        <span class="k">return</span> mpi_add_abs(result, a, b);
+<a class="l" name="59" href="#59"><span class="l">    59</span></a>    } <span class="k">else</span> {
+<a class="l" name="60" href="#60"><span class="l">    60</span></a>        <span class="k">return</span> mpi_sub_abs(result, a, b);
+<a class="l" name="61" href="#61"><span class="l">    61</span></a>    }
+<a class="l" name="62" href="#62"><span class="l">    62</span></a>}
+<a class="l" name="63" href="#63"><span class="l">    63</span></a>
+<a class="l" name="64" href="#64"><span class="l">    64</span></a><span class="c">/* Multiply two MPI integers */
+</span><a class="l" name="65" href="#65"><span class="l">    65</span></a><span class="k">int</span> mpi_mul(mpi_t *result, <span class="k">const</span> mpi_t *a, <span class="k">const</span> mpi_t *b) {
+<a class="l" name="66" href="#66"><span class="l">    66</span></a>    size_t i, j;
+<a class="l" name="67" href="#67"><span class="l">    67</span></a>    <span class="k">if</span> (result == NULL || a == NULL || b == NULL) {
+<a class="l" name="68" href="#68"><span class="l">    68</span></a>        <span class="k">return</span> MPI_ERR_NULL;
+<a class="l" name="69" href="#69"><span class="l">    69</span></a>    }
+<a class="l" name="70" href="#70"><span class="l">    70</span></a>    <span class="c">/* Handle zero cases */
+</span><a class="l" name="71" href="#71"><span class="l">    71</span></a>    <span class="k">if</span> (a-&gt;size == <span class="n">0</span> || b-&gt;size == <span class="n">0</span>) {
+<a class="l" name="72" href="#72"><span class="l">    72</span></a>        result-&gt;size = <span class="n">0</span>;
+<a class="l" name="73" href="#73"><span class="l">    73</span></a>        <span class="k">return</span> MPI_OK;
+<a class="l" name="74" href="#74"><span class="l">    74</span></a>    }
+<a class="l" name="75" href="#75"><span class="l">    75</span></a>    <span class="c">/* Allocate space for result */
+</span><a class="l" name="76" href="#76"><span class="l">    76</span></a>    <span class="k">if</span> (mpi_grow(result, a-&gt;size + b-&gt;size) != MPI_OK) {
+<a class="l" name="77" href="#77"><span class="l">    77</span></a>        <span class="k">return</span> MPI_ERR_NOMEM;
+<a class="l" name="78" href="#78"><span class="l">    78</span></a>    }
+<a class="l" name="79" href="#79"><span class="l">    79</span></a>    <span class="c">/* Zero out result */
+</span><a class="l" name="80" href="#80"><span class="l">    80</span></a>    memset(result-&gt;data, <span class="n">0</span>, (a-&gt;size + b-&gt;size) * <span class="k">sizeof</span>(mp_digit));
+<a class="l" name="81" href="#81"><span class="l">    81</span></a>    <span class="c">/* Perform multiplication */
+</span><a class="l" name="82" href="#82"><span class="l">    82</span></a>    <span class="k">for</span> (i = <span class="n">0</span>; i &lt; a-&gt;size; i++) {
+<a class="l" name="83" href="#83"><span class="l">    83</span></a>        mp_digit carry = <span class="n">0</span>;
+<a class="l" name="84" href="#84"><span class="l">    84</span></a>        <span class="k">for</span> (j = <span class="n">0</span>; j &lt; b-&gt;size; j++) {
+<a class="l" name="85" href="#85"><span class="l">    85</span></a>            mp_word prod = (mp_word)a-&gt;data[i] * b-&gt;data[j];
+<a class="l" name="86" href="#86"><span class="l">    86</span></a>            prod += result-&gt;data[i + j] + carry;
+<a class="l" name="87" href="#87"><span class="l">    87</span></a>            result-&gt;data[i + j] = (mp_digit)prod;
+<a class="l" name="88" href="#88"><span class="l">    88</span></a>            carry = (mp_digit)(prod &gt;&gt; MP_DIGIT_BITS);
+<a class="l" name="89" href="#89"><span class="l">    89</span></a>        }
+<a class="l" name="90" href="#90"><span class="l">    90</span></a>        result-&gt;data[i + b-&gt;size] = carry;
+<a class="l" name="91" href="#91"><span class="l">    91</span></a>    }
+<a class="l" name="92" href="#92"><span class="l">    92</span></a>    result-&gt;size = a-&gt;size + b-&gt;size;
+<a class="l" name="93" href="#93"><span class="l">    93</span></a>    result-&gt;sign = (a-&gt;sign == b-&gt;sign) ? <span class="n">1</span> : -<span class="n">1</span>;
+<a class="l" name="94" href="#94"><span class="l">    94</span></a>    mpi_clamp(result);
+<a class="l" name="95" href="#95"><span class="l">    95</span></a>    <span class="k">return</span> MPI_OK;
+<a class="l" name="96" href="#96"><span class="l">    96</span></a>}
+<a class="l" name="97" href="#97"><span class="l">    97</span></a>
+<a class="l" name="98" href="#98"><span class="l">    98</span></a><span class="c">/* Compare two MPI integers */
+</span><a class="l" name="99" href="#99"><span class="l">    99</span></a><span class="k">int</span> mpi_cmp(mpi_t *a, mpi_t *b) {
+<a class="l" name="100" href="#100"><span class="l">   100</span></a>    <span class="k">if</span> (a == NULL || b == NULL) {
+<a class="l" name="101" href="#101"><span class="l">   101</span></a>        <span class="k">return</span> <span class="n">0</span>;
+<a class="l" name="102" href="#102"><span class="l">   102</span></a>    }
+<a class="l" name="103" href="#103"><span class="l">   103</span></a>    <span class="c">/* Compare signs first */
+</span><a class="l" name="104" href="#104"><span class="l">   104</span></a>    <span class="k">if</span> (a-&gt;sign != b-&gt;sign) {
+<a class="l" name="105" href="#105"><span class="l">   105</span></a>        <span class="k">return</span> a-&gt;sign;
+<a class="l" name="106" href="#106"><span class="l">   106</span></a>    }
+<a class="l" name="107" href="#107"><span class="l">   107</span></a>    <span class="c">/* Compare sizes */
+</span><a class="l" name="108" href="#108"><span class="l">   108</span></a>    <span class="k">if</span> (a-&gt;size != b-&gt;size) {
+<a class="l" name="109" href="#109"><span class="l">   109</span></a>        <span class="k">return</span> (a-&gt;size &gt; b-&gt;size) ? a-&gt;sign : -a-&gt;sign;
+<a class="l" name="110" href="#110"><span class="l">   110</span></a>    }
+<a class="l" name="111" href="#111"><span class="l">   111</span></a>    <span class="c">/* Compare digits from most significant */
+</span><a class="l" name="112" href="#112"><span class="l">   112</span></a>    <span class="k">for</span> (size_t i = a-&gt;size; i &gt; <span class="n">0</span>; i--) {
+<a class="l" name="113" href="#113"><span class="l">   113</span></a>        <span class="k">if</span> (a-&gt;data[i-<span class="n">1</span>] != b-&gt;data[i-<span class="n">1</span>]) {
+<a class="l" name="114" href="#114"><span class="l">   114</span></a>            <span class="k">return</span> (a-&gt;data[i-<span class="n">1</span>] &gt; b-&gt;data[i-<span class="n">1</span>]) ? a-&gt;sign : -a-&gt;sign;
+<a class="l" name="115" href="#115"><span class="l">   115</span></a>        }
+<a class="l" name="116" href="#116"><span class="l">   116</span></a>    }
+<a class="l" name="117" href="#117"><span class="l">   117</span></a>    <span class="k">return</span> <span class="n">0</span>;
+<a class="l" name="118" href="#118"><span class="l">   118</span></a>}
+<a class="l" name="119" href="#119"><span class="l">   119</span></a>
+<a class="l" name="120" href="#120"><span class="l">   120</span></a><span class="c">/* Convert MPI to string */
+</span><a class="l" name="121" href="#121"><span class="l">   121</span></a><span class="k">char</span> *mpi_to_str(mpi_t *mp, <span class="k">int</span> radix) {
+<a class="l" name="122" href="#122"><span class="l">   122</span></a>    <span class="k">if</span> (mp == NULL || radix &lt; <span class="n">2</span> || radix &gt; <span class="n">36</span>) {
+<a class="l" name="123" href="#123"><span class="l">   123</span></a>        <span class="k">return</span> NULL;
+<a class="l" name="124" href="#124"><span class="l">   124</span></a>    }
+<a class="l" name="125" href="#125"><span class="l">   125</span></a>    <span class="c">/* Handle zero case */
+</span><a class="l" name="126" href="#126"><span class="l">   126</span></a>    <span class="k">if</span> (mp-&gt;size == <span class="n">0</span>) {
+<a class="l" name="127" href="#127"><span class="l">   127</span></a>        <span class="k">char</span> *str = malloc(<span class="n">2</span>);
+<a class="l" name="128" href="#128"><span class="l">   128</span></a>        <span class="k">if</span> (str) {
+<a class="l" name="129" href="#129"><span class="l">   129</span></a>            str[<span class="n">0</span>] = <span class="s">'0'</span>;
+<a class="l" name="130" href="#130"><span class="l">   130</span></a>            str[<span class="n">1</span>] = <span class="s">'\0'</span>;
+<a class="l" name="131" href="#131"><span class="l">   131</span></a>        }
+<a class="l" name="132" href="#132"><span class="l">   132</span></a>        <span class="k">return</span> str;
+<a class="l" name="133" href="#133"><span class="l">   133</span></a>    }
+<a class="l" name="134" href="#134"><span class="l">   134</span></a>    <span class="c">/* Calculate string length needed */
+</span><a class="l" name="135" href="#135"><span class="l">   135</span></a>    size_t len = mpi_string_size(mp, radix);
+<a class="l" name="136" href="#136"><span class="l">   136</span></a>    <span class="k">char</span> *str = malloc(len + <span class="n">1</span>);
+<a class="l" name="137" href="#137"><span class="l">   137</span></a>    <span class="k">if</span> (str == NULL) {
+<a class="l" name="138" href="#138"><span class="l">   138</span></a>        <span class="k">return</span> NULL;
+<a class="l" name="139" href="#139"><span class="l">   139</span></a>    }
+<a class="l" name="140" href="#140"><span class="l">   140</span></a>    <span class="c">/* Convert to string */
+</span><a class="l" name="141" href="#141"><span class="l">   141</span></a>    mpi_to_str_impl(mp, radix, str);
+<a class="l" name="142" href="#142"><span class="l">   142</span></a>    <span class="k">return</span> str;
+<a class="l" name="143" href="#143"><span class="l">   143</span></a>}
+<a class="l" name="144" href="#144"><span class="l">   144</span></a>
+<a class="l" name="145" href="#145"><span class="l">   145</span></a><span class="c">/* End of file */
+</span></pre>
+  </div>
+</body>
+</html>
