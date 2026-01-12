@@ -1,5 +1,43 @@
 # Changelog
 
+## [1.5.0] - 2026-01-12
+
+### Added
+- **CI/CD**: GitHub Actions workflow for automated testing and linting
+- **Build System**: Cross-platform `build.sh` script replacing Makefile
+  - Works on macOS, Linux, and Windows (Git Bash/WSL)
+  - Same commands as before: `./build.sh build`, `./build.sh test`, `./build.sh dist`
+- **Installers**: Unified installation scripts
+  - `install.sh` for macOS/Linux
+  - `install.ps1` for Windows PowerShell
+  - `install.bat` for Windows double-click
+  - Auto-detect Chrome extension ID for native messaging
+- **Annotation Storage v2**: JSON schema-based annotation protocol
+  - Request/response schemas in `og_annotate/schema/`
+  - Improved validation and error handling
+- **Testing**: Chrome extension E2E smoke tests against live OpenGrok
+- **Testing**: VS Code extension test infrastructure
+
+### Changed
+- **og_annotate**: Migrated to v2 annotation storage format
+- **Chrome Extension**: Improved native messaging error handling
+
+### Fixed
+- Security improvements across extensions
+- Better error messages for native host communication failures
+
+## [1.4.0] - 2026-01-08
+
+### Added
+- **Inline Annotations**: Chrome extension annotation feature for source code
+  - Create, edit, and delete annotations on any line
+  - Annotations stored as markdown files via native messaging host
+  - Keyboard shortcuts: `c` to create, `x` to jump to next
+  - Author tracking and timestamps
+- **og_annotate**: Native messaging host for annotation file I/O
+  - Reads/writes markdown annotation files to local/network drives
+  - Path encoding with double-underscore scheme
+
 ## [1.3.0] - 2026-01-04
 
 ### Added
