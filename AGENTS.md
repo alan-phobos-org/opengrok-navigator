@@ -1,7 +1,5 @@
 # OpenGrok Navigator - Agent Instructions
 
-> **Note**: This file was renamed from `CLAUDE.md` to `AGENTS.md` to support multiple AI agents.
-
 Bidirectional VS Code ↔ OpenGrok integration via extensions and CLI tool.
 
 ## Vision
@@ -10,257 +8,142 @@ An assistant for busy researchers navigating large codebases. Bridge web-based c
 
 **Current Version:** v1.5.0
 
-**Documentation**: See [docs/](docs/) for architecture, build instructions, and design documents.
+## Documentation
 
-## Components
+| Document | Purpose | Read When |
+|----------|---------|-----------|
+| [AGENTS.md](AGENTS.md) | Development workflow, quick reference | Always |
+| [docs/REFERENCE.md](docs/REFERENCE.md) | Native messaging, architecture details | Debugging integration |
+| [docs/DESIGN.md](docs/DESIGN.md) | High-level architecture | Major refactoring |
+| [docs/PLAN.md](docs/PLAN.md) | Roadmap, backlog | Planning work |
+| [docs/BUILD.md](docs/BUILD.md) | Build instructions | Build issues |
+| [CHANGELOG.md](CHANGELOG.md) | Release notes | Preparing releases |
 
-### VS Code Extension (`vscode-extension/`)
-- Open current line in OpenGrok, copy URLs, search & display results in sidebar
-- Key files: [src/extension.ts](vscode-extension/src/extension.ts), [package.json](vscode-extension/package.json)
+## Quick Reference
 
-### Chrome Extension (`chrome-extension/`)
-- Ctrl+Click line numbers to open in VS Code via `vscode://` protocol
-- Floating button, context menu, keyboard shortcuts
-- **Inline annotations** for source code (new in v1.4.0)
-- Key files: [content.js](chrome-extension/content.js), [background.js](chrome-extension/background.js), [annotations.js](chrome-extension/annotations.js)
+### Build Commands
 
-### og CLI Tool (`og/`)
-- Command-line OpenGrok search client written in Go
-- Search types: full, def, symbol, path, hist
-- Call graph tracing with `trace` command
-- Key files: [main.go](og/main.go), [client.go](og/client.go), [trace.go](og/trace.go)
+| Command | Purpose |
+|---------|---------|
+| `./build.sh check` | **Pre-commit** (lint + test + build) |
+| `./build.sh build` | Build all components |
+| `./build.sh test` | Run all Go tests |
+| `./build.sh test-chrome` | Chrome E2E tests |
+| `./build.sh deploy-local` | Build and install locally |
 
-### og_annotate Native Host (`og_annotate/`)
-- Native messaging host for Chrome annotation storage
-- Reads/writes markdown annotation files to local/network drives
-- Key files: [main.go](og_annotate/main.go), [annotations.go](og_annotate/annotations.go)
+### Components
 
-## Architecture
+| Component | Directory | Purpose |
+|-----------|-----------|---------|
+| VS Code Extension | `vscode-extension/` | Open/search in OpenGrok |
+| Chrome Extension | `chrome-extension/` | Click to VS Code, annotations |
+| og CLI | `og/` | Command-line search |
+| og_annotate | `og_annotate/` | Native host for annotations |
 
-**Core Components** ([extension.ts](vscode-extension/src/extension.ts)):
-1. TreeView (lines 17-99): `SearchResultLine`, `SearchResultFile`, `SearchResultsProvider`
-2. API Integration (126-184): `searchOpenGrokAPI()` - tries REST API v1 `/api/v1/search`, falls back to HTML
-3. JSON Parsing (186-271): `parseOpenGrokJSON()` for REST API responses
-4. HTML Parsing (273-432): `parseOpenGrokResults()` fallback - extracts context from `<a>` tags
-5. Commands (500-742): `openInOpenGrok`, `copyOpenGrokUrl`, `searchInView`, etc.
+## Workflows
 
-**URL Format**: `{baseUrl}/xref/{projectName}/{relativePath}#{lineNumber}`
-- Normal mode: uses workspace folder name
-- `useTopLevelFolder` mode: uses first path component
+| Trigger | Action |
+|---------|--------|
+| Before any commit | `./build.sh check` |
+| "what's next", "status" | `./build.sh status` → read `docs/PLAN.md` → summarize (10-15 lines) |
+| "prepare release" | `./build.sh prepare-release` → update CHANGELOG.md → `./build.sh release X.Y.Z` → push |
+| "deploy locally" | `./build.sh deploy-local` |
+| "fast deploy" | `./build.sh deploy-local --skip-tests` |
 
-**Settings**:
-- `baseUrl` (default: `http://localhost:8080/source`)
-- `projectRoot`, `useIntegratedBrowser`, `useTopLevelFolder`
-- `authEnabled`, `authUsername` (password in SecretStorage)
+## Key Files
 
-**Keybindings**: `Ctrl+Shift+G` prefix ("G" for Grok)
-- O: Open, C: Copy URL, S: Search (browser), V: Search (VS Code), A: Search all projects
+| Component | Key Files |
+|-----------|-----------|
+| VS Code | `vscode-extension/src/extension.ts`, `package.json` |
+| Chrome | `chrome-extension/content.js`, `background.js`, `annotations.js` |
+| og CLI | `og/main.go`, `client.go`, `trace.go` |
+| og_annotate | `og_annotate/main.go`, `annotations.go` |
 
-## Key Implementation Details
+---
 
-**HTML Parsing**: `/<a[^>]*>.*?<\/span>\s*(.+?)<\/a>/s` extracts code after line number span
+## Testing [READ IF: implementing features, fixing bugs]
 
-**Search Term Highlighting**: Uses `TreeItemLabel.highlights` for yellow highlighting
+### Test Commands
 
-**Path Mapping**: Extracts `/xref/{project}/path` → local workspace path
+| Command | Purpose | Speed |
+|---------|---------|-------|
+| `./build.sh test` | Go tests | <5s |
+| `./build.sh test-chrome` | Chrome E2E tests | ~30s |
+| `./build.sh test-all` | All tests | ~35s |
 
-**Authentication**: HTTP Basic Auth via VS Code SecretStorage, applied to both REST/HTML
+### Chrome E2E Tests (`chrome-extension/tests/e2e/`)
 
-**REST API Migration**: Prefers REST API v1 (clean JSON), falls back to HTML for older OpenGrok
+| Test File | Coverage |
+|-----------|----------|
+| `ui-injection.spec.ts` | Toolbar, buttons, file finder |
+| `navigation.spec.ts` | Ctrl+click, keyboard shortcuts |
+| `annotations.spec.ts` | Toggle, create, delete |
 
-## Annotations Feature
+### Test Dependencies
 
-**Architecture**: Chrome extension ↔ background.js ↔ og_annotate (native host) ↔ filesystem
-
-**Storage Format**: Markdown files with double-underscore path encoding
-- `project__src__file.java.md` for `project/src/file.java`
-- Escape `__` in names as `___`
-
-**Key Components**:
-- `annotations.js`: AnnotationManager class, UI rendering, polling
-- `annotations.css`: Margin note style with yellow accent
-- `og_annotate/`: Go native host for file I/O
-
-**Settings** (Options page):
-- Storage path (local: `chrome.storage.local`)
-- Author name, poll interval (synced: `chrome.storage.sync`)
-
-**Keyboard Shortcuts** (Chrome extension):
-- `t`: Quick file finder
-- `c`: Create annotation (requires hovering over a line number)
-- `x`: Jump to next annotation (wraps around)
-
-## Native Messaging Linkage (CRITICAL)
-
-**IMPORTANT**: The Chrome extension ↔ og_annotate link requires exact name matching across multiple files.
-
-**Message Flow**:
-1. `annotations.js` → `chrome.runtime.sendMessage()` → `background.js`
-2. `background.js` → `chrome.runtime.sendNativeMessage('og_annotate', ...)` → og_annotate binary
-3. og_annotate binary → stdio response → back through the chain
-
-**Critical Link Points**:
-
-| Component | File | Key Value |
-|-----------|------|-----------|
-| Host name constant | [background.js:20](chrome-extension/background.js#L20) | `const NATIVE_HOST = 'og_annotate'` |
-| Permission | [manifest.json:10](chrome-extension/manifest.json#L10) | `"nativeMessaging"` |
-| Manifest name | install.sh / install.ps1 | `"name": "og_annotate"` |
-| Binary protocol | [main.go](og_annotate/main.go) | 4-byte little-endian length + JSON |
-
-**Action Mapping** (prefix stripped by background.js):
-
-| Chrome Action | og_annotate Handler |
-|--------------|-------------------|
-| `annotation:ping` | `ping` |
-| `annotation:read` | `read` |
-| `annotation:save` | `save` |
-| `annotation:delete` | `delete` |
-| `annotation:startEditing` | `startEditing` |
-| `annotation:stopEditing` | `stopEditing` |
-| `annotation:getEditing` | `getEditing` |
-
-**Native Messaging Manifest** (created by installers):
-- macOS: `~/Library/Application Support/Google/Chrome/NativeMessagingHosts/og_annotate.json`
-- Linux: `~/.config/google-chrome/NativeMessagingHosts/og_annotate.json`
-- Windows: Registry `HKCU:\Software\Google\Chrome\NativeMessagingHosts\og_annotate` → manifest file
-
-**Manifest Format**:
-```json
-{
-  "name": "og_annotate",
-  "path": "/path/to/og_annotate",
-  "type": "stdio",
-  "allowed_origins": ["chrome-extension://EXTENSION_ID/"]
-}
-```
-
-**When modifying**: If you change the host name, you MUST update: `NATIVE_HOST` constant, installer manifest generation, and og_annotate binary name expectations.
-
-## Development Workflow
-
-Before committing, always run:
-```bash
-./build.sh check
-```
-
-This runs gofmt, staticcheck, Go tests, and builds all components.
-
-## Build Commands
-
-```bash
-./build.sh build              # Build all components
-./build.sh build-vscode       # Build VS Code extension (.vsix)
-./build.sh build-chrome       # Package Chrome extension (.zip)
-./build.sh build-og           # Build og CLI tool
-./build.sh build-og-annotate  # Build og_annotate native host
-./build.sh dev                # Quick development build (no clean)
-./build.sh dist               # Run check and create distribution zip
-./build.sh test               # Run all Go tests
-./build.sh test-chrome        # Run Chrome extension E2E tests
-./build.sh test-all           # Run all tests including Chrome E2E
-./build.sh lint               # Format and lint Go code
-./build.sh check              # Full pre-commit check (lint + test + build)
-./build.sh clean              # Remove all build artifacts
-./build.sh deploy-local       # Run dist and install from package
-./build.sh deploy-local --skip-tests  # Fast deploy without tests
-./build.sh prepare-release    # Run all checks and show changes
-./build.sh release X.Y.Z      # Create release commit and tag
-```
-
-## Installation
-
-**Unified Installers** (in dist archive and repo root):
-- `install.sh` - macOS/Linux installer
-- `install.ps1` - Windows PowerShell installer
-- `install.bat` - Windows double-click wrapper
-
-**What they install**:
-1. VS Code extension via `code --install-extension` (falls back to manual instructions)
-2. Chrome extension extracted to `~/.opengrok-navigator/chrome-extension/` (requires manual load)
-3. og_annotate native host with auto-detected extension ID
-
-**Usage**:
-```bash
-# From dist archive or repo root
-./install.sh          # macOS/Linux
-.\install.ps1         # Windows PowerShell
-install.bat           # Windows (double-click)
-
-# Local development
-./build.sh deploy-local     # Build and install locally
-```
-
-**Install locations**:
-- Chrome extension: `~/.opengrok-navigator/chrome-extension/` (Unix) or `%LOCALAPPDATA%\opengrok-navigator\` (Windows)
-- og_annotate binary: `~/.local/bin/og_annotate` (Unix) or `%LOCALAPPDATA%\og_annotate\` (Windows)
-
-## Test Maintenance
-
-**IMPORTANT**: When making design changes to the Chrome extension, the E2E tests MUST be updated.
-
-**Chrome Extension Tests** (`chrome-extension/tests/e2e/`):
-- `ui-injection.spec.ts`: Tests toolbar, buttons, file finder modal
-- `navigation.spec.ts`: Tests Ctrl+click, keyboard shortcuts
-- `annotations.spec.ts`: Tests annotation toggle, create, delete
-
-**Test Dependencies** (update tests when modifying):
-| File Changed | Tests to Update |
-|--------------|-----------------|
+| File Changed | Update Tests |
+|--------------|--------------|
 | `content.js` | `ui-injection.spec.ts`, `navigation.spec.ts` |
 | `annotations.js` | `annotations.spec.ts` |
 | `content.css` | `ui-injection.spec.ts` (if class names change) |
 | `manifest.json` | All tests (if content script patterns change) |
 
-**Running Tests**:
+### Running Chrome Tests
+
 ```bash
 cd chrome-extension
-npm install                    # First time only
-npx playwright install chromium # First time only
-npm test                       # Run all tests (headless) - ALWAYS USE THIS
-npm run test:headed           # Run with visible browser (debugging only)
-npm run test:ui               # Debug with Playwright UI (debugging only)
+npm install                    # First time
+npx playwright install chromium # First time
+npm test                       # Always use headless mode
 ```
 
-**IMPORTANT**: Always run `npm test` (headless mode) to verify tests pass. Never skip running tests after changes.
+---
 
-## OpenGrok Installer Scripts (`scripts/`)
+## Native Messaging [READ IF: debugging annotation integration]
 
-**Target Platform**: Ubuntu 20.04+ (also works on RHEL/CentOS with iptables)
+**CRITICAL**: Name matching must be exact across:
+- `background.js` constant: `NATIVE_HOST = 'og_annotate'`
+- `manifest.json` permission: `"nativeMessaging"`
+- Installer manifest: `"name": "og_annotate"`
 
-**Key files**:
-- [install-opengrok.sh](scripts/install-opengrok.sh) - Offline installer
-- [download-dependencies.sh](scripts/download-dependencies.sh) - Downloads required tarballs
+See [docs/REFERENCE.md](docs/REFERENCE.md) for full details.
 
-**Port 80 Support**: Uses iptables NAT rules to redirect privileged ports (< 1024) to Tomcat on 8080. Requires `iptables` package; for persistence install `iptables-persistent` (Ubuntu) or `iptables-services` (RHEL).
+---
+
+## Release Process [READ IF: user explicitly requests release]
+
+```bash
+# 1. Run all checks
+./build.sh prepare-release
+
+# 2. Update CHANGELOG.md (add: ## [X.Y.Z] - YYYY-MM-DD)
+
+# 3. Review docs for completed TODOs
+
+# 4. Create release
+./build.sh release X.Y.Z
+
+# 5. Push
+git push origin main vX.Y.Z
+```
+
+---
+
+## Installation [READ IF: debugging install issues]
+
+**Unified Installers** (in dist archive and repo root):
+- `install.sh` - macOS/Linux
+- `install.ps1` - Windows PowerShell
+- `install.bat` - Windows double-click wrapper
+
+**What they install**:
+1. VS Code extension via `code --install-extension`
+2. Chrome extension to `~/.opengrok-navigator/chrome-extension/`
+3. og_annotate native host with auto-detected extension ID
+
+---
 
 ## Hints
 
-* Claude is extremely concise when reporting progress and summarising changes (don't include line numbers or precise files)
-* All design docs should go into the `docs` folder
-
-## Agent Workflows
-
-### What's Next
-
-When asked "what's next" or similar, run this workflow to provide a concise project status summary:
-
-**1. Run Status Command**
-```bash
-./build.sh status
-```
-This provides working copy state, remote sync, CI status, releases, and recent commits.
-
-**2. Review Plan**
-Read `docs/PLAN.md` and compare against the status output:
-- Current phase completion vs what's been released
-- Next planned milestone or backlog items ready to start
-- Any blockers or dependencies
-
-**3. Summary Report**
-Combine the status output with plan review to provide:
-- Current state (working copy, CI health, version)
-- Plan progress (what phase we're in, what's next)
-- **Suggested next step**: one clear recommendation
-
-Keep the report brief (10-15 lines max). Focus on actionable information.
+- Report progress and changes concisely (no line numbers or precise files)
+- All design docs go in the `docs` folder
