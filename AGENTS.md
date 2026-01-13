@@ -4,6 +4,10 @@
 
 Bidirectional VS Code ↔ OpenGrok integration via extensions and CLI tool.
 
+## Vision
+
+An assistant for busy researchers navigating large codebases. Bridge web-based code browsing and local development by linking existing tools (OpenGrok, VS Code, CLI) into a seamless workflow. Capture and share institutional knowledge through lightweight annotations. Everything must be fast enough to use reflexively and reliable enough to trust without checking. Never get in the way of someone finding answers quickly.
+
 **Current Version:** v1.5.0
 
 **Documentation**: See [docs/](docs/) for architecture, build instructions, and design documents.
