@@ -353,18 +353,18 @@ func parseFunctionName(lines []string) string {
 		if strings.Contains(trimmed, ";") {
 			continue
 		}
-		if strings.Contains(trimmed, "=") && strings.Index(trimmed, "=") < strings.Index(trimmed, "(") {
+		// Look for function definition pattern: identifier followed by (
+		parenIdx := strings.Index(trimmed, "(")
+		if parenIdx == -1 {
 			continue
 		}
-
-		// Look for function definition pattern: identifier followed by (
-		idx := strings.Index(trimmed, "(")
-		if idx == -1 {
+		// Skip assignments where = appears before (
+		if eqIdx := strings.Index(trimmed, "="); eqIdx != -1 && eqIdx < parenIdx {
 			continue
 		}
 
 		// Extract tokens before the (
-		before := trimmed[:idx]
+		before := trimmed[:parenIdx]
 		tokens := strings.Fields(before)
 
 		if len(tokens) == 0 {
