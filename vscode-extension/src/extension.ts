@@ -667,7 +667,7 @@ function buildOpenGrokUrl(): string | null {
 
     // Get the file path relative to workspace
     const workspaceFolders = vscode.workspace.workspaceFolders;
-    if (!workspaceFolders) {
+    if (!workspaceFolders || workspaceFolders.length === 0) {
         vscode.window.showErrorMessage('No workspace folder found');
         return null;
     }
@@ -787,7 +787,7 @@ export function activate(context: vscode.ExtensionContext) {
 
         if (editor) {
             const workspaceFolders = vscode.workspace.workspaceFolders;
-            if (workspaceFolders) {
+            if (workspaceFolders && workspaceFolders.length > 0) {
                 const workspaceRoot = workspaceFolders[0].uri.fsPath;
                 const filePath = editor.document.uri.fsPath;
                 const relativePath = path.relative(workspaceRoot, filePath);
@@ -877,7 +877,7 @@ export function activate(context: vscode.ExtensionContext) {
 
         if (editor) {
             const workspaceFolders = vscode.workspace.workspaceFolders;
-            if (workspaceFolders) {
+            if (workspaceFolders && workspaceFolders.length > 0) {
                 const workspaceRoot = workspaceFolders[0].uri.fsPath;
                 const filePath = editor.document.uri.fsPath;
                 const relativePath = path.relative(workspaceRoot, filePath);
