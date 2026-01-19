@@ -51,7 +51,7 @@ class SearchResultLineItem extends vscode.TreeItem {
         let startIndex = 0;
         while (startIndex < contextLower.length) {
             const index = contextLower.indexOf(searchTerm, startIndex);
-            if (index === -1) break;
+            if (index === -1) { break; }
             highlights.push([index, index + searchTerm.length]);
             startIndex = index + searchTerm.length;
         }
@@ -120,18 +120,6 @@ class SearchResultsProvider implements vscode.TreeDataProvider<SearchResultFile 
     }
 }
 
-// OpenGrok API response types
-interface OpenGrokSearchResult {
-    path: string;
-    lineno: string;
-    line: string;
-}
-
-interface OpenGrokAPIResponse {
-    results?: OpenGrokSearchResult[];
-    resultCount?: number;
-}
-
 function parseResultKey(key: string, fallbackProject: string): { project: string; pathFromKey: string } {
     const trimmed = key.startsWith('/') ? key.substring(1) : key;
     const parts = trimmed.split('/');
@@ -171,7 +159,8 @@ function normalizeResultPath(project: string, rawPath: string | undefined, direc
 }
 
 // Function to perform OpenGrok API search
-async function searchOpenGrokAPI(baseUrl: string, searchText: string, projectName: string, context: vscode.ExtensionContext, outputChannel?: vscode.OutputChannel): Promise<any> {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function searchOpenGrokAPI(baseUrl: string, searchText: string, projectName: string, context: vscode.ExtensionContext): Promise<any> {
     return new Promise(async (resolve, reject) => {
         const quotedSearchText = `"${searchText}"`;
         const encodedSearchText = encodeURIComponent(quotedSearchText);
@@ -231,16 +220,8 @@ async function searchOpenGrokAPI(baseUrl: string, searchText: string, projectNam
             }
         }
 
-        // Set up timeout
-        let timeoutHandle: NodeJS.Timeout | undefined;
-        const cleanup = () => {
-            if (timeoutHandle) {
-                clearTimeout(timeoutHandle);
-            }
-        };
-
         const req = protocol.get(searchUrl, requestOptions, (res) => {
-            cleanup(); // Clear timeout on response
+            clearTimeout(timeoutHandle);
             const statusCode = res.statusCode || 0;
 
             // Handle authentication errors
@@ -296,7 +277,7 @@ async function searchOpenGrokAPI(baseUrl: string, searchText: string, projectNam
         });
 
         req.on('error', (error: NodeJS.ErrnoException) => {
-            cleanup();
+            clearTimeout(timeoutHandle);
             // Provide helpful error messages based on error type
             if (error.code === 'ECONNREFUSED') {
                 reject(new Error(`Could not connect to OpenGrok at ${baseUrl}. Check that OpenGrok is running and the URL is correct.`));
@@ -310,7 +291,7 @@ async function searchOpenGrokAPI(baseUrl: string, searchText: string, projectNam
         });
 
         // Set timeout
-        timeoutHandle = setTimeout(() => {
+        const timeoutHandle = setTimeout(() => {
             req.destroy();
             reject(new Error(`Search timed out after ${searchTimeout / 1000}s. Try a more specific search term or increase the timeout in settings.`));
         }, searchTimeout);
@@ -918,7 +899,7 @@ export function activate(context: vscode.ExtensionContext) {
             cancellable: false
         }, async () => {
             try {
-                const result = await searchOpenGrokAPI(baseUrl, searchText, projectName, context, outputChannel);
+                const result = await searchOpenGrokAPI(baseUrl, searchText, projectName, context);
 
                 let parsedResults: SearchResultFile[];
                 if (result.type === 'json') {

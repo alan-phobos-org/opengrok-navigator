@@ -84,9 +84,6 @@ suite('Configuration Tests', () => {
     test('Configuration should allow custom baseUrl', async () => {
         const config = vscode.workspace.getConfiguration('opengrok-navigator');
 
-        // Get and restore original value
-        const originalBaseUrl = config.get('baseUrl');
-
         // Configuration inspection should work
         const inspection = config.inspect('baseUrl');
         assert.ok(inspection);
@@ -110,7 +107,7 @@ suite('Search Result Parsing Tests', () => {
 
         while (startIndex < contextLower.length) {
             const index = contextLower.indexOf(searchTerm, startIndex);
-            if (index === -1) break;
+            if (index === -1) { break; }
             highlights.push([index, index + searchTerm.length]);
             startIndex = index + searchTerm.length;
         }
@@ -130,7 +127,7 @@ suite('Search Result Parsing Tests', () => {
 
         while (startIndex < contextLower.length) {
             const index = contextLower.indexOf(searchTerm, startIndex);
-            if (index === -1) break;
+            if (index === -1) { break; }
             highlights.push([index, index + searchTerm.length]);
             startIndex = index + searchTerm.length;
         }
