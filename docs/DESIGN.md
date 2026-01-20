@@ -154,3 +154,4 @@ Would require:
 - [BUILD.md](BUILD.md) - Build and development instructions
 - [QUICKSTART.md](QUICKSTART.md) - Quick setup guide
 - [FEATURE_SUGGESTIONS.md](FEATURE_SUGGESTIONS.md) - Future feature proposals
+- [FAVOURITE_PROJECTS_DESIGN.md](FAVOURITE_PROJECTS_DESIGN.md) - Favourite projects search feature
