@@ -54,6 +54,10 @@
       {
         "command": "opengrok-navigator.clearPassword",
         "title": "Clear Stored OpenGrok Password"
+      },
+      {
+        "command": "opengrok-navigator.searchFavouriteProjects",
+        "title": "Search Favourite Projects in OpenGrok (Browser)"
       }
     ],
     "keybindings": [
@@ -86,6 +90,12 @@
         "key": "ctrl+shift+g a",
         "mac": "cmd+shift+g a",
         "when": "editorTextFocus"
+      },
+      {
+        "command": "opengrok-navigator.searchFavouriteProjects",
+        "key": "ctrl+shift+g f",
+        "mac": "cmd+shift+g f",
+        "when": "editorTextFocus"
       }
     ],
     "menus": {
@@ -114,6 +124,11 @@
           "command": "opengrok-navigator.searchAllProjects",
           "when": "editorTextFocus",
           "group": "navigation@5"
+        },
+        {
+          "command": "opengrok-navigator.searchFavouriteProjects",
+          "when": "editorTextFocus",
+          "group": "navigation@6"
         }
       ],
       "view/title": [
@@ -185,6 +200,14 @@
           "type": "number",
           "default": 300,
           "description": "Maximum length of context displayed for each search result (default: 300 characters)"
+        },
+        "opengrok-navigator.favouriteProjects": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "markdownDescription": "List of OpenGrok project names to include when using 'Search Favourite Projects'. Example: `[\"kernel\", \"libc\", \"drivers\"]`"
         }
       }
     }

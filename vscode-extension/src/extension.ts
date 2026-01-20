@@ -996,6 +996,88 @@ export function activate(context: vscode.ExtensionContext) {
         }
     });
 
+    // Command: Search favourite projects in OpenGrok
+    const searchFavouriteProjectsDisposable = vscode.commands.registerCommand('opengrok-navigator.searchFavouriteProjects', async () => {
+        const editor = vscode.window.activeTextEditor;
+        const config = vscode.workspace.getConfiguration('opengrok-navigator');
+        const baseUrl = config.get<string>('baseUrl');
+        const favouriteProjects = config.get<string[]>('favouriteProjects', []);
+
+        if (!baseUrl) {
+            vscode.window.showErrorMessage('OpenGrok base URL is not configured. Please set it in settings.');
+            return;
+        }
+
+        // Check if favourites are configured
+        if (favouriteProjects.length === 0) {
+            const action = await vscode.window.showWarningMessage(
+                'No favourite projects configured. Add projects to search across.',
+                'Configure Favourites'
+            );
+            if (action === 'Configure Favourites') {
+                vscode.commands.executeCommand(
+                    'workbench.action.openSettings',
+                    'opengrok-navigator.favouriteProjects'
+                );
+            }
+            return;
+        }
+
+        // Get selected text or prompt for search term
+        let searchText = '';
+        if (editor && !editor.selection.isEmpty) {
+            searchText = editor.document.getText(editor.selection);
+        }
+
+        if (!searchText) {
+            const input = await vscode.window.showInputBox({
+                prompt: `Enter text to search across ${favouriteProjects.length} favourite project(s)`,
+                placeHolder: 'Search term'
+            });
+
+            if (!input) {
+                return; // User cancelled
+            }
+            searchText = input;
+        }
+
+        // URL encode and quote the search text for exact match
+        const quotedSearchText = `"${searchText}"`;
+        const encodedSearchText = encodeURIComponent(quotedSearchText);
+
+        // Build URL with repeated project parameters
+        let searchUrl = `${baseUrl}/search?full=${encodedSearchText}`;
+        for (const project of favouriteProjects) {
+            searchUrl += `&project=${encodeURIComponent(project)}`;
+        }
+
+        const useIntegratedBrowser = config.get<boolean>('useIntegratedBrowser', false);
+
+        // Open search results in browser
+        if (useIntegratedBrowser) {
+            try {
+                await vscode.commands.executeCommand('simpleBrowser.show', searchUrl);
+            } catch (error) {
+                vscode.window.showErrorMessage(
+                    `Failed to open in Simple Browser: ${error instanceof Error ? error.message : 'Unknown error'}`,
+                    'Open Settings',
+                    'Use External Browser'
+                ).then(selection => {
+                    if (selection === 'Open Settings') {
+                        vscode.commands.executeCommand(
+                            'workbench.action.openSettings',
+                            'opengrok-navigator.useIntegratedBrowser'
+                        );
+                    } else if (selection === 'Use External Browser') {
+                        vscode.env.openExternal(vscode.Uri.parse(searchUrl));
+                    }
+                });
+            }
+        } else {
+            await vscode.env.openExternal(vscode.Uri.parse(searchUrl));
+        }
+    });
+
     // Command: Open file in editor
     const openFileDisposable = vscode.commands.registerCommand('opengrok-navigator.openFileInEditor', async (filePath: string, lineNumber?: number, searchTerm?: string) => {
         try {
@@ -1045,6 +1127,7 @@ export function activate(context: vscode.ExtensionContext) {
         clearResultsDisposable,
         clearPasswordDisposable,
         searchAllProjectsDisposable,
+        searchFavouriteProjectsDisposable,
         openFileDisposable
     );
 }
