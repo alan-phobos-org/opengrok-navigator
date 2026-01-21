@@ -98,37 +98,44 @@
         "when": "editorTextFocus"
       }
     ],
+    "submenus": [
+      {
+        "id": "opengrok-navigator.submenu",
+        "label": "OpenGrok"
+      }
+    ],
     "menus": {
       "editor/context": [
         {
-          "command": "opengrok-navigator.openInOpenGrok",
+          "submenu": "opengrok-navigator.submenu",
           "when": "editorTextFocus",
-          "group": "navigation@1"
+          "group": "navigation@10"
+        }
+      ],
+      "opengrok-navigator.submenu": [
+        {
+          "command": "opengrok-navigator.openInOpenGrok",
+          "group": "1@1"
         },
         {
           "command": "opengrok-navigator.copyOpenGrokUrl",
-          "when": "editorTextFocus",
-          "group": "navigation@2"
+          "group": "1@2"
         },
         {
           "command": "opengrok-navigator.searchInOpenGrok",
-          "when": "editorTextFocus",
-          "group": "navigation@3"
+          "group": "2@1"
         },
         {
           "command": "opengrok-navigator.searchInView",
-          "when": "editorTextFocus",
-          "group": "navigation@4"
-        },
-        {
-          "command": "opengrok-navigator.searchAllProjects",
-          "when": "editorTextFocus",
-          "group": "navigation@5"
+          "group": "2@2"
         },
         {
           "command": "opengrok-navigator.searchFavouriteProjects",
-          "when": "editorTextFocus",
-          "group": "navigation@6"
+          "group": "2@3"
+        },
+        {
+          "command": "opengrok-navigator.searchAllProjects",
+          "group": "2@4"
         }
       ],
       "view/title": [

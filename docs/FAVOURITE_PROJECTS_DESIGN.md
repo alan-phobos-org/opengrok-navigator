@@ -62,12 +62,14 @@ OpenGrok supports multiple methods for specifying projects in search queries:
 
 **URL Format:**
 ```
-{baseUrl}/search?full={query}&project={p1}&project={p2}&project={p3}
+{baseUrl}/search?project={p1}&project={p2}&project={p3}&full={query}&defs=&refs=&path=&hist=&type=
 ```
+
+**CRITICAL:** OpenGrok requires the empty search type parameters (`defs=&refs=&path=&hist=&type=`) to properly scope the search. Without these, OpenGrok may ignore the project filters and search all projects instead.
 
 **Example:**
 ```
-http://opengrok.example.com/source/search?full=%22my%20search%22&project=kernel&project=libc&project=drivers
+http://opengrok.example.com/source/search?project=kernel&project=libc&project=drivers&full=%22my%20search%22&defs=&refs=&path=&hist=&type=
 ```
 
 ---

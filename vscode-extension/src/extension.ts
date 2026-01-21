@@ -1045,11 +1045,15 @@ export function activate(context: vscode.ExtensionContext) {
         const quotedSearchText = `"${searchText}"`;
         const encodedSearchText = encodeURIComponent(quotedSearchText);
 
-        // Build URL with repeated project parameters
-        let searchUrl = `${baseUrl}/search?full=${encodedSearchText}`;
+        // Build URL with project parameters first, then search query
+        // Include empty search type parameters to properly scope the search
+        let searchUrl = `${baseUrl}/search?`;
         for (const project of favouriteProjects) {
-            searchUrl += `&project=${encodeURIComponent(project)}`;
+            // Strip quotes from project names (both single and double)
+            const cleanProject = project.replace(/^["']|["']$/g, '');
+            searchUrl += `project=${encodeURIComponent(cleanProject)}&`;
         }
+        searchUrl += `full=${encodedSearchText}&defs=&refs=&path=&hist=&type=`;
 
         const useIntegratedBrowser = config.get<boolean>('useIntegratedBrowser', false);
 
